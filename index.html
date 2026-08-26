@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Roadtrip!</title>
 
-    
     <!-- Ladda Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -21,7 +20,6 @@
         .gmnoprint { transition: opacity 0.3s ease; }
         .place-card.active { border-color: #3b82f6; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.5); background-color: #eff6ff;}
         
-        /* Specifik styling för drag-panelen på mobil */
         @media (max-width: 767px) {
             #resultPanel {
                 position: absolute;
@@ -39,21 +37,15 @@
                 display: flex;
                 flex-direction: column;
             }
-            #resultPanel.open {
-                transform: translateY(0);
-            }
-            #resultPanel.half {
-                transform: translateY(50%);
-            }
-            #dragHandleArea {
-                touch-action: none;
-            }
+            #resultPanel.open { transform: translateY(0); }
+            #resultPanel.half { transform: translateY(50%); }
+            #dragHandleArea { touch-action: none; }
         }
     </style>
 </head>
 <body class="h-[100dvh] flex flex-col relative">
 
-    <!-- Inställnings-modal (Döljer API-nyckel) -->
+    <!-- Inställnings-modal -->
     <div id="settingsModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md m-4 relative">
             <button onclick="toggleSettings()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
@@ -66,20 +58,20 @@
             
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Google Maps API-nyckel</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Google API-nyckel (Maps & Gemini)</label>
                     <input type="password" id="apiKey" placeholder="AIzaSy..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                    <p class="text-xs text-gray-500 mt-1">Krävs för att visa kartan och söka platser.</p>
+                    <p class="text-xs text-gray-500 mt-1">Används för kartan, platssökning och Gemini AI.</p>
                 </div>
                 
                 <!-- Google Drive Sektion -->
                 <div class="pt-3 border-t border-gray-100">
                     <h3 class="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Google Drive Synk</h3>
                     <div class="flex gap-2">
-                        <button id="loadDriveBtn" disabled onclick="loadKeyFromDrive()" class="flex-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed" title="Hämta nyckel från Google Drive">
+                        <button id="loadDriveBtn" disabled onclick="loadKeyFromDrive()" class="flex-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed">
                             <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                             Hämta
                         </button>
-                        <button id="saveDriveBtn" disabled onclick="saveKeyToDrive()" class="flex-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed" title="Spara nyckel till Google Drive">
+                        <button id="saveDriveBtn" disabled onclick="saveKeyToDrive()" class="flex-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed">
                             <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                             Spara
                         </button>
@@ -94,45 +86,37 @@
         </div>
     </div>
 
-    <!-- HUVUD-HEADER (Ligger alltid överst och tar hela bredden) -->
+    <!-- HUVUD-HEADER -->
     <header class="bg-white shadow-sm z-20 px-4 py-3 border-b border-gray-200 shrink-0 w-full flex flex-col md:flex-row md:items-center justify-between gap-3">
         
-        <!-- Logotyp och Inställningar (Överst på mobil, vänster på desktop) -->
         <div class="flex items-center justify-between md:justify-start w-full md:w-auto gap-4">
             <div class="flex items-center gap-2">
                 <div class="bg-indigo-600 p-1.5 rounded-lg text-white">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                 </div>
-                <h1 class="text-lg font-bold text-gray-800 tracking-tight">Roadtrip!</h1>
+                <h1 class="text-lg font-bold text-gray-800 tracking-tight">Roadtrip AI</h1>
             </div>
             
-            <!-- Inställningsknapp syns bara här på mobil, döljs på desktop (där den är till höger istället) -->
             <button onclick="toggleSettings()" class="md:hidden p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
             </button>
         </div>
 
-        <!-- Sökkontroller (Centrerat/Sträcker sig) -->
+        <!-- Sökkontroller med AI-prompt och mikrofon -->
         <div class="flex-1 flex flex-col sm:flex-row items-center gap-3 w-full md:max-w-3xl">
-            <div class="flex items-center gap-2 w-full">
-                <!-- Dropdown -->
-                <select id="placeType" class="w-[90px] sm:w-auto text-sm border-gray-300 rounded-md py-1.5 pl-2 pr-6 focus:ring-indigo-500 border bg-white cursor-pointer font-medium text-gray-700 shrink-0">
-                    <option value="hotel" class="hidden sm:block">🏨 Hotell</option>
-                    <option value="hotel" class="sm:hidden">🏨 Hot</option>
-                    <option value="tourist attraction" class="hidden sm:block">📸 Sevärdheter</option>
-                    <option value="tourist attraction" class="sm:hidden">📸 Sev</option>
-                    <option value="restaurant" class="hidden sm:block">🍽️ Restauranger</option>
-                    <option value="restaurant" class="sm:hidden">🍽️ Res</option>
-                    <option value="electric vehicle charging station" class="hidden sm:block">⚡ Laddstationer</option>
-                    <option value="electric vehicle charging station" class="sm:hidden">⚡ Lad</option>
-                </select>
-
-                <!-- Fritext -->
-                <div class="relative flex-1">
-                    <input type="text" id="freeText" placeholder="Fritext (spa, tesla...)" class="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                    <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                </div>
+            <div class="relative flex-1 w-full flex items-center">
+                <input type="text" id="freeText" placeholder="Fråga Gemini Pro (t.ex. 'Hotell med laddplats')..." class="w-full pl-8 pr-10 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none" onkeypress="if(event.key === 'Enter') triggerAiSearch()">
+                <svg class="w-4 h-4 text-gray-400 absolute left-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                
+                <!-- Mikrofonknapp -->
+                <button id="micBtn" onclick="toggleVoiceInput()" class="absolute right-2 text-gray-400 hover:text-indigo-600 p-1 transition-colors" title="Tala in din fråga">
+                    <svg id="micIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                </button>
             </div>
+            
+            <button onclick="triggerAiSearch()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-1.5 rounded-md text-sm transition-colors shrink-0 flex items-center justify-center gap-1">
+                <span>Fråga Gemini</span>
+            </button>
             
             <!-- Betyg -->
             <div class="flex items-center gap-2 w-full sm:w-auto sm:border-l sm:border-gray-300 sm:pl-3 shrink-0 justify-between sm:justify-start">
@@ -141,16 +125,14 @@
             </div>
         </div>
         
-        <!-- Inställningsknapp på Desktop (Längst till höger) -->
         <button onclick="toggleSettings()" class="hidden md:block p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors shrink-0">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
         </button>
     </header>
 
-    <!-- INNEHÅLL (Karta och Sidebar under Headern) -->
+    <!-- INNEHÅLL -->
     <main class="flex-1 flex flex-col md:flex-row relative overflow-hidden">
         
-        <!-- Karta -->
         <div class="flex-1 relative bg-gray-200">
             <div id="map" class="absolute inset-0"></div>
             
@@ -158,7 +140,6 @@
                 <p class="text-indigo-600 font-bold animate-pulse" id="overlayText">Laddar karta...</p>
             </div>
 
-            <!-- Floating draw button -->
             <div id="drawBtn" class="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 hidden">
                 <button onclick="activateDrawMode()" class="bg-white hover:bg-indigo-50 border border-indigo-500 text-indigo-700 font-bold text-xs sm:text-sm px-4 py-2 rounded-full shadow-md flex items-center gap-1.5 transition-all active:scale-95 whitespace-nowrap">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
@@ -166,28 +147,22 @@
                 </button>
             </div>
 
-            <!-- Active drawing mode indicator -->
             <div id="drawingToast" class="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 hidden pointer-events-none">
                 <div class="bg-indigo-600 text-white font-bold text-xs px-4 py-2 rounded-full shadow-md flex items-center gap-2 animate-pulse whitespace-nowrap">
                     Rita på skärmen...
                 </div>
             </div>
 
-            <!-- Min Position-knapp -->
             <button onclick="geolocateUser()" class="absolute bottom-[110px] md:bottom-6 right-3 z-10 bg-white p-2.5 rounded-full shadow border border-gray-200 text-gray-600 hover:text-indigo-600 hover:bg-gray-50 transition-colors" title="Min position">
                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"></path></svg>
             </button>
         </div>
 
-        <!-- Resultatlista (Sidebar på Desktop, Resizable Panel på Mobil) -->
         <aside id="resultPanel" class="w-full md:w-[400px] md:relative md:h-full md:transform-none md:border-l border-gray-200 md:bg-white flex flex-col shrink-0">
-            
-            <!-- Drag Handle (Endast mobil) -->
             <div id="dragHandleArea" class="w-full flex justify-center items-center h-8 md:hidden bg-white rounded-t-3xl cursor-grab active:cursor-grabbing border-b border-gray-100 shrink-0">
                 <div class="w-12 h-1.5 bg-gray-300 rounded-full"></div>
             </div>
 
-            <!-- Panel Header -->
             <div class="p-2 sm:p-3 bg-white border-b border-gray-100 flex justify-between items-center shrink-0">
                 <h3 class="font-bold text-gray-800 flex items-center gap-1.5 text-xs sm:text-sm">
                     <svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 01-1.32.95l-3.7-1.48-3.7 1.48A1 1 0 014 16V4z" clip-rule="evenodd"></path></svg>
@@ -198,11 +173,10 @@
             
             <div id="statusMessage" class="hidden mx-2 mt-2 p-1.5 rounded text-[10px] sm:text-xs font-medium text-center shrink-0"></div>
 
-            <!-- List Container -->
             <div class="flex-1 overflow-y-auto p-2 sm:p-3 custom-scrollbar space-y-2 bg-gray-50 md:bg-white" id="placeList">
                 <div class="h-full flex flex-col items-center justify-center text-gray-400 space-y-1">
                     <svg class="w-8 h-8 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                    <p class="text-[11px] italic text-center px-4">Rita på kartan för att söka.</p>
+                    <p class="text-[11px] italic text-center px-4">Rita ett område på kartan och skriv eller tala in din fråga.</p>
                 </div>
             </div>
         </aside>
@@ -220,8 +194,8 @@
         let freehandLine = null;
         let drawListeners = [];
 
-        // --- Google Drive Config & Funktioner ---
-        const CLIENT_ID = '940508107225-2h91m1o4he6r27g1q7hgtaq0f6127dd8.apps.googleusercontent.com'; // <-- KLISTRA IN DITT CLIENT ID HÄR!
+        // Google Drive Config
+        const CLIENT_ID = '940508107225-2h91m1o4he6r27g1q7hgtaq0f6127dd8.apps.googleusercontent.com';
         const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
         const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
         const FILE_NAME = 'roadtrip_config.json';
@@ -229,6 +203,7 @@
         let tokenClient;
         let gapiInited = false;
         let gisInited = false;
+        let recognition = null;
 
         function gapiLoaded() {
             gapi.load('client', async () => {
@@ -316,7 +291,7 @@
                 }
             } catch (err) {
                 console.error(err);
-                setDriveStatus('Ett fel uppstod. Har du fyllt i korrekt Client ID?', 'error');
+                setDriveStatus('Ett fel uppstod.', 'error');
             }
         }
 
@@ -353,7 +328,6 @@
 
                 let request;
                 if (files && files.length > 0) {
-                    setDriveStatus('Uppdaterar befintlig fil...', 'info');
                     request = gapi.client.request({
                         'path': '/upload/drive/v3/files/' + files[0].id,
                         'method': 'PATCH',
@@ -362,7 +336,6 @@
                         'body': multipartRequestBody
                     });
                 } else {
-                    setDriveStatus('Skapar ny fil...', 'info');
                     request = gapi.client.request({
                         'path': '/upload/drive/v3/files',
                         'method': 'POST',
@@ -374,7 +347,6 @@
 
                 request.execute(function(file) {
                     if(file.error) {
-                        console.error(file.error);
                         setDriveStatus('Kunde inte spara till Drive.', 'error');
                     } else {
                         setDriveStatus('Nyckel sparad i molnet!', 'success');
@@ -382,10 +354,9 @@
                 });
             } catch (err) {
                 console.error(err);
-                setDriveStatus('Ett fel uppstod. Har du fyllt i korrekt Client ID?', 'error');
+                setDriveStatus('Ett fel uppstod.', 'error');
             }
         }
-        // --- Slut på Drive-kod ---
 
         document.addEventListener('DOMContentLoaded', () => {
             const savedKey = localStorage.getItem('googleMapsApiKey');
@@ -399,7 +370,6 @@
             initDragPanel(); 
         });
 
-        // --- Logik för Swipeable Bottom Sheet (Mobil) ---
         function initDragPanel() {
             const panel = document.getElementById('resultPanel');
             const handle = document.getElementById('dragHandleArea');
@@ -422,25 +392,20 @@
             handle.addEventListener('touchmove', (e) => {
                 const deltaY = e.touches[0].clientY - startY;
                 let newY = startTransform + deltaY;
-                
                 if(newY < 0) newY = 0; 
                 const maxClosed = window.innerHeight * 0.85 - 100; 
                 if(newY > maxClosed) newY = maxClosed; 
-
                 panel.style.transform = `translateY(${newY}px)`;
             }, {passive: true});
 
             handle.addEventListener('touchend', (e) => {
                 panel.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
                 panel.style.transform = ''; 
-                
                 const deltaY = e.changedTouches[0].clientY - startY;
-                
                 if (deltaY < -30) {
                     panel.classList.add('open');
                     panel.classList.remove('half');
-                } 
-                else if (deltaY > 30) {
+                } else if (deltaY > 30) {
                     panel.classList.remove('open');
                     panel.classList.remove('half');
                 }
@@ -449,13 +414,9 @@
 
         function toggleSettings(forceShow = null) {
             const modal = document.getElementById('settingsModal');
-            if (forceShow === true) {
-                modal.classList.remove('hidden');
-            } else if (forceShow === false) {
-                modal.classList.add('hidden');
-            } else {
-                modal.classList.toggle('hidden');
-            }
+            if (forceShow === true) modal.classList.remove('hidden');
+            else if (forceShow === false) modal.classList.add('hidden');
+            else modal.classList.toggle('hidden');
         }
 
         function saveKeyAndStart() {
@@ -517,9 +478,7 @@
                 mapTypeControl: false,
                 streetViewControl: false,
                 gestureHandling: 'greedy', 
-                styles: [
-                    { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] }
-                ]
+                styles: [{ featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] }]
             });
 
             infoWindow = new google.maps.InfoWindow();
@@ -552,8 +511,7 @@
 
             if (window.innerWidth < 768) {
                 const panel = document.getElementById('resultPanel');
-                panel.classList.remove('open');
-                panel.classList.remove('half');
+                panel.classList.remove('open', 'half');
             }
 
             document.getElementById('drawBtn').style.display = 'none';
@@ -603,7 +561,7 @@
                 }
             }
 
-            function endDraw(e) {
+            function endDraw() {
                 if (!isDrawingActive) return;
                 isDrawingActive = false;
                 isDrawMode = false;
@@ -628,7 +586,7 @@
                     panel.classList.add('half'); 
                 }
 
-                performSearchInPolygon(currentPolygon);
+                triggerAiSearch();
             }
 
             const events = [
@@ -642,12 +600,101 @@
                 mapDiv.addEventListener(event.type, event.fn, { passive: false });
                 drawListeners.push(event);
             });
-        };
+        }
 
-        async function performSearchInPolygon(polygon) {
-            if(!polygon) return;
+        // --- Röststyrnings-funktioner ---
+        function toggleVoiceInput() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("Röststyrning stöds inte i din webbläsare.");
+                return;
+            }
+
+            if (recognition && recognition.recording) {
+                recognition.stop();
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.lang = 'sv-SE';
+            recognition.interimResults = false;
+
+            const micIcon = document.getElementById('micIcon');
+
+            recognition.onstart = () => { 
+                recognition.recording = true;
+                micIcon.classList.add('text-red-500', 'animate-pulse');
+                setStatus('Lyssnar...', 'info');
+            };
+            
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById('freeText').value = transcript;
+                triggerAiSearch();
+            };
+
+            recognition.onerror = () => { setStatus('Kunde inte uppfatta rösten.', 'error'); };
+
+            recognition.onend = () => {
+                recognition.recording = false;
+                micIcon.classList.remove('text-red-500', 'animate-pulse');
+            };
+
+            recognition.start();
+        }
+
+        // --- Gemini AI & Places Integration ---
+        async function triggerAiSearch() {
+            if (!currentPolygon) {
+                setStatus('Rita ett område på kartan först!', 'warning');
+                return;
+            }
+
+            const promptText = document.getElementById('freeText').value.trim();
+            if (!promptText) {
+                setStatus('Skriv eller tala in vad du söker efter.', 'warning');
+                return;
+            }
+
             clearResults();
-            setStatus('Söker...', 'info');
+            setStatus('Gemini tolkar din fråga...', 'info');
+
+            const apiKey = document.getElementById('apiKey').value.trim();
+            
+            try {
+                // Anropa Gemini 2.5 Pro för att översätta naturligt språk till en optimerad Places-sökfras
+                const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: `Du är en assistent som konverterar användarens sökönskemål till en optimerad sökfras för Google Places API Text Search. 
+                                Sökönskemål: "${promptText}". 
+                                Svara ENDAST med ett giltigt JSON-objekt i formatet: {"searchQuery": "din engelska eller svenska sökfras"}`
+                            }]
+                        }],
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                });
+
+                if (!geminiRes.ok) throw new Error('Gemini API svarade inte.');
+
+                const geminiData = await geminiRes.json();
+                const parsed = JSON.parse(geminiData.candidates[0].content.parts[0].text);
+                const queryStr = parsed.searchQuery || promptText;
+
+                performSearchInPolygon(currentPolygon, queryStr);
+
+            } catch (err) {
+                console.error(err);
+                setStatus('Kunde inte tolka med Gemini, söker direkt på din text...', 'warning');
+                performSearchInPolygon(currentPolygon, promptText);
+            }
+        }
+
+        async function performSearchInPolygon(polygon, queryStr) {
+            setStatus(`Söker efter: "${queryStr}"...`, 'info');
 
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) return;
@@ -663,9 +710,6 @@
             }
             
             const minRating = parseFloat(document.getElementById('minRating').value);
-            const placeType = document.getElementById('placeType').value;
-            const freeText = document.getElementById('freeText').value.trim();
-            const queryStr = freeText ? `${freeText} ${placeType}` : placeType;
 
             try {
                 const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
@@ -688,7 +732,7 @@
                 if (data.places && data.places.length > 0) {
                     filterAndDisplayResults(data.places, polygon, minRating, apiKey);
                 } else {
-                    setStatus('Inga platser matchade.', 'warning');
+                    setStatus('Inga platser matchade sökningen.', 'warning');
                 }
             } catch (error) {
                 setStatus('Ett fel uppstod vid sökning.', 'error');
@@ -838,22 +882,9 @@
             document.getElementById('placeList').innerHTML = '';
         }
 
-        let typingTimer;
-        document.getElementById('freeText').addEventListener('input', () => {
-            clearTimeout(typingTimer);
-            if (currentPolygon) {
-                typingTimer = setTimeout(() => performSearchInPolygon(currentPolygon), 800);
-            }
-        });
-
-        document.getElementById('placeType').addEventListener('change', () => {
-            if (currentPolygon) performSearchInPolygon(currentPolygon);
-        });
-
         document.getElementById('minRating').addEventListener('change', () => {
-            if (currentPolygon) performSearchInPolygon(currentPolygon);
+            if (currentPolygon) triggerAiSearch();
         });
     </script>
 </body>
 </html>
-
