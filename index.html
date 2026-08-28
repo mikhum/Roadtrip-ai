@@ -20,6 +20,11 @@
         .gm-style-iw { padding: 0 !important; border-radius: 8px !important; }
         .gm-style-iw-d { overflow: hidden !important; }
         .gm-ui-hover-effect { top: 4px !important; right: 4px !important; background: white !important; border-radius: 50% !important; }
+        
+        /* Tillägg för att stylea Google Autocomplete dropdown */
+        .pac-container { z-index: 9999 !important; border-radius: 0.5rem; border: 1px solid #e2e8f0; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); font-family: 'Inter', sans-serif; margin-top: 4px;}
+        .pac-item { padding: 8px 12px; cursor: pointer; }
+        .pac-item:hover { background-color: #f8fafc; }
     </style>
 </head>
 <body class="h-[100dvh] flex flex-col relative">
@@ -73,7 +78,7 @@
                 <div class="bg-indigo-600 p-1.5 rounded-lg text-white">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                 </div>
-                <h1 class="text-lg font-bold text-gray-800 tracking-tight">Roadtrip AI</h1>
+                <h1 class="text-lg font-bold text-gray-800 tracking-tight whitespace-nowrap">Roadtrip AI</h1>
             </div>
             
             <button onclick="toggleSettings()" class="md:hidden p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
@@ -82,12 +87,19 @@
         </div>
 
         <!-- Sökkontroller -->
-        <div class="flex-1 flex flex-col sm:flex-row items-center gap-3 w-full md:max-w-3xl">
+        <div class="flex-1 flex flex-col sm:flex-row items-center gap-3 w-full md:max-w-4xl">
+            
+            <!-- Nytt fält för att förflytta kartan -->
+            <div class="relative w-full sm:w-48 shrink-0">
+                <input type="text" id="locationSearch" placeholder="Gå till ort..." class="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-gray-50">
+                <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            </div>
+
+            <!-- Gemini sökfält -->
             <div class="relative flex-1 w-full flex items-center">
                 <input type="text" id="freeText" placeholder="Fråga Gemini Pro (t.ex. 'Hotell med laddplats')..." class="w-full pl-8 pr-10 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none" onkeypress="if(event.key === 'Enter') triggerAiSearch()">
                 <svg class="w-4 h-4 text-gray-400 absolute left-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 
-                <!-- Mikrofonknapp -->
                 <button id="micBtn" onclick="toggleVoiceInput()" class="absolute right-2 text-gray-400 hover:text-indigo-600 p-1 transition-colors" title="Tala in din fråga">
                     <svg id="micIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
                 </button>
@@ -119,7 +131,6 @@
                 <p class="text-indigo-600 font-bold animate-pulse" id="overlayText">Laddar karta...</p>
             </div>
 
-            <!-- Toast-meddelanden som visas över kartan istället för i sidopanelen -->
             <div id="statusMessage" class="hidden absolute top-20 left-1/2 transform -translate-x-1/2 z-20 px-4 py-2 rounded shadow-md text-xs sm:text-sm font-medium text-center whitespace-nowrap transition-all"></div>
 
             <div id="drawBtn" class="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 hidden">
@@ -146,14 +157,13 @@
         let currentPolygon = null;
         let placeMarkers = [];
         let infoWindow;
-        let allFetchedPlaces = []; // Sparar all data så slidern kan filtrera lokalt
+        let allFetchedPlaces = [];
 
         let isDrawMode = false;
         let freehandPath = [];
         let freehandLine = null;
         let drawListeners = [];
 
-        // Google Drive Config
         const CLIENT_ID = '940508107225-2h91m1o4he6r27g1q7hgtaq0f6127dd8.apps.googleusercontent.com';
         const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
         const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
@@ -292,7 +302,6 @@
             } else { alert("Ange en API-nyckel först."); }
         }
 
-        // Uppdaterad Status-funktion som flyter över kartan
         function setStatus(msg, type = 'info') {
             const statusDiv = document.getElementById('statusMessage');
             if(!msg) {
@@ -327,7 +336,8 @@
             }
 
             const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=3.64&libraries=geometry&callback=initializeMap&loading=async`;
+            // Lade till biblioteket "places" i laddnings-strängen för att Autocomplete ska fungera
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=3.64&libraries=geometry,places&callback=initializeMap&loading=async`;
             script.async = true;
             script.defer = true;
             script.onerror = () => {
@@ -351,6 +361,30 @@
             });
 
             infoWindow = new google.maps.InfoWindow();
+
+            // Initiera Places Autocomplete för orts-sökning
+            const locationInput = document.getElementById('locationSearch');
+            const autocomplete = new google.maps.places.Autocomplete(locationInput);
+            autocomplete.bindTo('bounds', map);
+
+            autocomplete.addListener('place_changed', () => {
+                const place = autocomplete.getPlace();
+                if (!place.geometry || !place.geometry.location) {
+                    setStatus('Kunde inte hitta platsen på kartan.', 'warning');
+                    return;
+                }
+
+                // Centrera och zooma in på sökresultatet
+                if (place.geometry.viewport) {
+                    map.fitBounds(place.geometry.viewport);
+                } else {
+                    map.setCenter(place.geometry.location);
+                    map.setZoom(13);
+                }
+                
+                // Rensa sökfältet lite snabbt så det inte tar upp plats visuellt
+                locationInput.blur();
+            });
         };
 
         function geolocateUser() {
@@ -565,16 +599,13 @@
 
                 const data = await response.json();
                 
-                // Sparar all insamlad data för att sedan lokalt applicera dynamiska filter på den
                 allFetchedPlaces = data.places || []; 
                 applyRatingFilter();
 
             } catch (error) { setStatus('Ett fel uppstod vid sökning.', 'error'); }
         }
 
-        // --- Funktionen för dynamisk filtrering och rendering av markörer med namn ---
         function applyRatingFilter() {
-            // Töm nuvarande nålar och stäng popups
             placeMarkers.forEach(hm => hm.marker.setMap(null));
             placeMarkers = [];
             infoWindow.close();
@@ -587,14 +618,12 @@
             const minRating = parseFloat(document.getElementById('minRating').value);
             const apiKey = document.getElementById('apiKey').value.trim();
 
-            // Kolla att de faktiskt ligger inuti den ritade formen
             let filtered = allFetchedPlaces.filter(place => {
                 if(!place.location) return false;
                 const latLng = new google.maps.LatLng(place.location.latitude, place.location.longitude);
                 return google.maps.geometry.poly.containsLocation(latLng, currentPolygon);
             });
 
-            // Filtrera bort låga betyg lokalt (körs direkt när du drar i slidern)
             filtered = filtered.filter(place => (place.rating || 0) >= minRating);
 
             if (filtered.length === 0) {
@@ -607,7 +636,6 @@
             filtered.forEach(place => {
                 const location = { lat: place.location.latitude, lng: place.location.longitude };
                 
-                // Markör som skriver ut namnet istället för ett nummer
                 const marker = new google.maps.Marker({
                     map: map, 
                     position: location, 
@@ -631,7 +659,6 @@
 
                 placeMarkers.push({ id: place.id, marker: marker, data: place });
 
-                // Information i en snygg ruta vid klick
                 marker.addListener('click', () => {
                     let photoUrl = 'https://placehold.co/300x150/f8fafc/94a3b8?text=Bild+saknas';
                     if (place.photos && place.photos.length > 0) {
@@ -644,10 +671,8 @@
                     const priceLevels = { 'PRICE_LEVEL_INEXPENSIVE': '💰', 'PRICE_LEVEL_MODERATE': '💰💰', 'PRICE_LEVEL_EXPENSIVE': '💰💰💰', 'PRICE_LEVEL_VERY_EXPENSIVE': '💰💰💰💰' };
                     const priceBadge = place.priceLevel && priceLevels[place.priceLevel] ? priceLevels[place.priceLevel] : '';
                     
-                    // Skapa en säker klick-funktion för URL:en
                     const safeUrl = place.googleMapsUri ? place.googleMapsUri : '#';
                     
-                    // Gör hela rutan klickbar med cursor-pointer, och knappen tvingar webbläsaren att öppna appen/fliken
                     const contentString = `
                         <div onclick="window.open('${safeUrl}', '_top')" style="max-width: 240px; font-family: 'Inter', sans-serif; cursor: pointer;">
                             <img src="${photoUrl}" style="width: 100%; height: 130px; object-fit: cover; margin-bottom: 12px; border-radius: 8px 8px 0 0;">
@@ -677,13 +702,9 @@
             infoWindow.close();
         }
 
-        // Lyssna på rating-slidern i realtid (input istället för change)
         document.getElementById('minRating').addEventListener('input', (e) => {
             document.getElementById('ratingVal').innerText = e.target.value;
-            // Uppdatera kartan live om det redan finns insamlade resultat att filtrera
-            if (currentPolygon && allFetchedPlaces.length > 0) {
-                applyRatingFilter();
-            }
+            if (currentPolygon && allFetchedPlaces.length > 0) applyRatingFilter();
         });
     </script>
 </body>
