@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Roadtrip!</title>
+    <title>Roadtrip AI</title>
 
     <!-- Ladda Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -136,7 +136,7 @@
             </div>
 
             <button onclick="geolocateUser()" class="absolute bottom-6 right-3 z-10 bg-white p-2.5 rounded-full shadow border border-gray-200 text-gray-600 hover:text-indigo-600 hover:bg-gray-50 transition-colors" title="Min position">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94-7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"></path></svg>
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"></path></svg>
             </button>
         </div>
     </main>
@@ -572,7 +572,7 @@
             } catch (error) { setStatus('Ett fel uppstod vid sökning.', 'error'); }
         }
 
-        // --- Helt ny funktion för dynamisk filtrering och rendering av markörer med namn ---
+        // --- Funktionen för dynamisk filtrering och rendering av markörer med namn ---
         function applyRatingFilter() {
             // Töm nuvarande nålar och stäng popups
             placeMarkers.forEach(hm => hm.marker.setMap(null));
@@ -614,7 +614,7 @@
                     title: place.displayName.text,
                     label: { 
                         text: place.displayName.text, 
-                        color: "#1e1b4b", // Mörk indigo färg för texten
+                        color: "#1e1b4b",
                         fontSize: "12px", 
                         fontWeight: "800" 
                     },
@@ -625,13 +625,13 @@
                         fillOpacity: 1, 
                         strokeColor: "white", 
                         strokeWeight: 2,
-                        labelOrigin: new google.maps.Point(0, 2.5) // Knuffar ner texten lite under pricken
+                        labelOrigin: new google.maps.Point(0, 2.5) 
                     }
                 });
 
                 placeMarkers.push({ id: place.id, marker: marker, data: place });
 
-                // Information i en snygg "Google Maps"-liknande ruta vid klick
+                // Information i en snygg ruta vid klick
                 marker.addListener('click', () => {
                     let photoUrl = 'https://placehold.co/300x150/f8fafc/94a3b8?text=Bild+saknas';
                     if (place.photos && place.photos.length > 0) {
@@ -644,11 +644,13 @@
                     const priceLevels = { 'PRICE_LEVEL_INEXPENSIVE': '💰', 'PRICE_LEVEL_MODERATE': '💰💰', 'PRICE_LEVEL_EXPENSIVE': '💰💰💰', 'PRICE_LEVEL_VERY_EXPENSIVE': '💰💰💰💰' };
                     const priceBadge = place.priceLevel && priceLevels[place.priceLevel] ? priceLevels[place.priceLevel] : '';
                     
-                    const mapLink = place.googleMapsUri ? `<a href="${place.googleMapsUri}" target="_blank" style="display:block; text-align:center; margin-top:12px; padding:8px; background:#4f46e5; color:white; text-decoration:none; border-radius:6px; font-weight:bold; font-size:13px;">Öppna i Google Maps</a>` : '';
-
+                    // Skapa en säker klick-funktion för URL:en
+                    const safeUrl = place.googleMapsUri ? place.googleMapsUri : '#';
+                    
+                    // Gör hela rutan klickbar med cursor-pointer, och knappen tvingar webbläsaren att öppna appen/fliken
                     const contentString = `
-                        <div style="max-width: 240px; font-family: 'Inter', sans-serif;">
-                            <img src="${photoUrl}" style="width: 100%; height: 130px; object-fit: cover; margin-bottom: 12px;">
+                        <div onclick="window.open('${safeUrl}', '_top')" style="max-width: 240px; font-family: 'Inter', sans-serif; cursor: pointer;">
+                            <img src="${photoUrl}" style="width: 100%; height: 130px; object-fit: cover; margin-bottom: 12px; border-radius: 8px 8px 0 0;">
                             <div style="padding: 0 12px 12px 12px;">
                                 <h3 style="margin: 0 0 6px 0; font-size: 15px; color: #111827;">${place.displayName.text}</h3>
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; color: #4b5563;">
@@ -657,7 +659,7 @@
                                 </div>
                                 <p style="margin: 0 0 4px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">${typeStr}</p>
                                 <p style="margin: 0 0 8px 0; font-size: 12px; color: #6b7280; line-height: 1.4;">${place.formattedAddress}</p>
-                                ${mapLink}
+                                ${place.googleMapsUri ? `<button style="width:100%; display:block; text-align:center; margin-top:12px; padding:8px; background:#4f46e5; color:white; border:none; border-radius:6px; font-weight:bold; font-size:13px; cursor:pointer;">Öppna i Google Maps</button>` : ''}
                             </div>
                         </div>
                     `;
