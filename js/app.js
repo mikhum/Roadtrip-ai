@@ -1,10 +1,10 @@
 /**
  * AIRoadtrip — Main Application Coordinator
- * Bootstraps the application, coordinates Google Maps, Gemini AI,
+ * Bootstraps the application, coordinates Leaflet Map, Gemini AI,
  * Google Drive OAuth sync, search history, toasts, and UI interactions.
  */
 
-import { loadGoogleMapsScript, initMap, getMap, getInfoWindow, setupLocationAutocomplete, jumpToLocation, geolocateUser } from './map.js';
+import { initMap, getMap, setupLocationAutocomplete, jumpToLocation, geolocateUser } from './map.js';
 import { initDrawing, activateDrawMode, clearCurrentPolygon, getCurrentPolygon, hasPolygon } from './draw.js';
 import { optimizeQueryWithGemini, searchPlacesInPolygon, getSearchHistory, saveSearchToHistory, clearSearchHistory } from './search.js';
 import { initMarkers, setApiKey, setPlaces, clearMarkers, applyFilters } from './markers.js';
@@ -16,10 +16,12 @@ const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/res
 const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
 const FILE_NAME = 'roadtrip_config.json';
 const API_KEY_STORAGE_KEY = 'googleMapsApiKey';
+const VOICE_LANG_STORAGE_KEY = 'roadtrip_voice_lang';
 
 // App State
 let apiKey = '';
 let voiceController = null;
+let currentVoiceLang = localStorage.getItem(VOICE_LANG_STORAGE_KEY) || 'sv-SE';
 let gapiInited = false;
 let gisInited = false;
 let tokenClient = null;
@@ -153,6 +155,9 @@ async function loadKeyFromDrive() {
       });
       if (fileRes.result && fileRes.result.apiKey) {
         document.getElementById('apiKeyInput').value = fileRes.result.apiKey;
+        apiKey = fileRes.result.apiKey;
+        localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+        setApiKey(apiKey);
         setDriveStatus('API key loaded successfully!', 'success');
         showToast('API key retrieved from Google Drive', 'success');
       } else {
@@ -185,45 +190,38 @@ async function saveKeyToDrive() {
       fields: 'files(id, name)'
     });
     const files = response.result.files;
-
     const fileContent = JSON.stringify({ apiKey: inputKey });
-    const fileMetadata = { name: FILE_NAME, parents: ['appDataFolder'] };
-    const boundary = '-------314159265358979323846';
-    const delimiter = "\r\n--" + boundary + "\r\n";
-    const closeDelim = "\r\n--" + boundary + "--";
 
-    const multipartRequestBody = delimiter +
-      'Content-Type: application/json\r\n\r\n' +
-      JSON.stringify(fileMetadata) +
-      delimiter +
-      'Content-Type: application/json\r\n\r\n' +
-      fileContent +
-      closeDelim;
+    if (files && files.length > 0) {
+      await gapi.client.request({
+        path: `/upload/drive/v3/files/${files[0].id}`,
+        method: 'PATCH',
+        params: { uploadType: 'media' },
+        body: fileContent
+      });
+    } else {
+      await gapi.client.request({
+        path: '/upload/drive/v3/files',
+        method: 'POST',
+        params: { uploadType: 'multipart' },
+        headers: { 'Content-Type': 'multipart/related; boundary=foo_bar_baz' },
+        body: `--foo_bar_baz\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` +
+          JSON.stringify({ name: FILE_NAME, parents: ['appDataFolder'] }) +
+          `\r\n--foo_bar_baz\r\nContent-Type: application/json\r\n\r\n` +
+          fileContent + `\r\n--foo_bar_baz--`
+      });
+    }
 
-    const request = gapi.client.request({
-      path: files && files.length > 0 ? '/upload/drive/v3/files/' + files[0].id : '/upload/drive/v3/files',
-      method: files && files.length > 0 ? 'PATCH' : 'POST',
-      params: { uploadType: 'multipart' },
-      headers: { 'Content-Type': 'multipart/related; boundary="' + boundary + '"' },
-      body: multipartRequestBody
-    });
-
-    request.execute((file) => {
-      if (file.error) {
-        setDriveStatus('Could not save to Drive.', 'error');
-      } else {
-        setDriveStatus('API key saved securely to Google Drive!', 'success');
-        showToast('Saved to Google Drive', 'success');
-      }
-    });
+    setDriveStatus('Key backed up to Google Drive!', 'success');
+    showToast('Key saved to Google Drive Cloud', 'success');
   } catch (err) {
     console.error('Error saving key to Drive:', err);
-    setDriveStatus('An error occurred during save.', 'error');
+    setDriveStatus('Failed to save key to Drive.', 'error');
   }
 }
 
 // ==========================================================================
-// App Initialization & Settings Management
+// UI Toggles & Modals
 // ==========================================================================
 
 export function toggleSettingsModal(force = null) {
@@ -233,6 +231,30 @@ export function toggleSettingsModal(force = null) {
   if (force === true) modal.classList.remove('hidden');
   else if (force === false) modal.classList.add('hidden');
   else modal.classList.toggle('hidden');
+}
+
+export function toggleDrawer(force = null) {
+  const drawer = document.getElementById('navDrawer');
+  const backdrop = document.getElementById('drawerBackdrop');
+  if (!drawer || !backdrop) return;
+
+  const isOpen = !drawer.classList.contains('translate-x-full');
+  const shouldOpen = force !== null ? force : !isOpen;
+
+  if (shouldOpen) {
+    backdrop.classList.remove('hidden');
+    requestAnimationFrame(() => {
+      backdrop.classList.remove('opacity-0');
+      drawer.classList.remove('translate-x-full');
+    });
+    renderSearchHistory();
+  } else {
+    backdrop.classList.add('opacity-0');
+    drawer.classList.add('translate-x-full');
+    setTimeout(() => {
+      backdrop.classList.add('hidden');
+    }, 300);
+  }
 }
 
 export function toggleSidebar(force = null) {
@@ -246,72 +268,33 @@ export function toggleSidebar(force = null) {
 
 export function saveSettingsAndStart() {
   const inputVal = document.getElementById('apiKeyInput').value.trim();
-  if (!inputVal) {
-    showToast('Please enter a valid Google API key.', 'warning');
-    return;
-  }
-
   apiKey = inputVal;
   localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
   setApiKey(apiKey);
   toggleSettingsModal(false);
-  showToast('API key saved. Starting map…', 'success');
 
-  bootstrapMap();
+  if (apiKey) {
+    showToast('API key saved! Gemini AI & Places active.', 'success');
+  } else {
+    showToast('Using instant OpenStreetMap mode.', 'info');
+  }
 }
 
 /**
- * Loads Maps script and sets up all submodules.
+ * Bootstraps Leaflet map and sets up all submodules.
  */
-async function bootstrapMap() {
+export function bootstrapMap() {
   const overlay = document.getElementById('mapOverlay');
-  const overlayText = document.getElementById('overlayText');
-  const overlaySpinner = document.getElementById('overlaySpinner');
-  const overlayOpenSettingsBtn = document.getElementById('overlayOpenSettingsBtn');
-
-  if (!apiKey) {
-    if (overlay) overlay.classList.remove('hidden');
-    if (overlaySpinner) overlaySpinner.classList.add('hidden');
-    if (overlayText) {
-      overlayText.className = 'text-slate-600 font-semibold text-sm';
-      overlayText.innerText = 'Please enter your Google Cloud API key to start the map.';
-    }
-    if (overlayOpenSettingsBtn) overlayOpenSettingsBtn.classList.remove('hidden');
-    toggleSettingsModal(true);
-    return;
-  }
+  if (overlay) overlay.classList.add('hidden');
 
   try {
-    if (overlay) overlay.classList.remove('hidden');
-    if (overlaySpinner) overlaySpinner.classList.remove('hidden');
-    if (overlayOpenSettingsBtn) overlayOpenSettingsBtn.classList.add('hidden');
-    if (overlayText) {
-      overlayText.className = 'text-indigo-600 font-bold text-sm tracking-wide';
-      overlayText.innerText = 'Loading modern map…';
-    }
-
-    await loadGoogleMapsScript(apiKey);
-
     const map = initMap('map');
-    const infoWindow = getInfoWindow();
-
-    // Trigger map resize for mobile Android browsers to ensure tile rendering
-    setTimeout(() => {
-      if (window.google && window.google.maps && map) {
-        google.maps.event.trigger(map, 'resize');
-      }
-    }, 150);
-    setTimeout(() => {
-      if (window.google && window.google.maps && map) {
-        google.maps.event.trigger(map, 'resize');
-      }
-    }, 450);
 
     // Init Markers & Sidebar
     const sidebarList = document.getElementById('sidebarList');
     const sidebarCount = document.getElementById('sidebarCount');
-    initMarkers(map, infoWindow, sidebarList, sidebarCount);
-    setApiKey(apiKey);
+    initMarkers(map, null, sidebarList, sidebarCount);
+    if (apiKey) setApiKey(apiKey);
 
     // Init Drawing
     const mapDiv = document.getElementById('map');
@@ -371,25 +354,13 @@ async function bootstrapMap() {
       }
     });
 
-    if (overlay) overlay.classList.add('hidden');
     document.getElementById('floatingMapControls')?.classList.remove('hidden');
 
   } catch (err) {
     console.error('Error bootstrapping map:', err);
-    if (overlay) overlay.classList.add('hidden');
-    showToast(`Failed to load Google Maps: ${err.message || err}`, 'error', 8000);
-    toggleSettingsModal(true);
+    showToast(`Map init error: ${err.message || err}`, 'error');
   }
 }
-
-// Google Maps global authentication failure handler
-window.gm_authFailure = () => {
-  console.error('Google Maps API Authentication Failed (gm_authFailure)');
-  const overlay = document.getElementById('mapOverlay');
-  if (overlay) overlay.classList.add('hidden');
-  showToast('Google Maps API Key Error: Please check your API key restrictions and billing in Google Cloud Console.', 'error', 9000);
-  toggleSettingsModal(true);
-};
 
 // ==========================================================================
 // Search Operations
@@ -411,142 +382,99 @@ export async function triggerAiSearch() {
   }
 
   const searchBtn = document.getElementById('searchBtn');
-  const originalBtnContent = searchBtn ? searchBtn.innerHTML : '';
   if (searchBtn) {
     searchBtn.disabled = true;
-    searchBtn.innerHTML = `<span class="spinner"></span><span>Searching…</span>`;
+    searchBtn.innerHTML = `<span class="spinner !w-3.5 !h-3.5 !border-white !border-t-transparent inline-block mr-1"></span>`;
   }
 
   clearMarkers();
-  showToast('AI is optimizing your search query…', 'info', 2000);
+  showToast('Searching for places in area…', 'info', 2000);
 
   try {
-    // 1. Gemini query optimization
-    const optimizedQuery = await optimizeQueryWithGemini(queryText, apiKey);
+    // 1. Gemini query optimization (if key provided)
+    let optimizedQuery = queryText;
+    if (apiKey) {
+      try {
+        optimizedQuery = await optimizeQueryWithGemini(queryText, apiKey);
+      } catch (e) {
+        console.warn('Gemini optimization fallback:', e);
+      }
+    }
     
     // Save to history
-    saveSearchToHistory(queryText, optimizedQuery);
+    saveSearchToHistory(queryText);
     renderSearchHistory();
 
-    showToast(`Searching places for: "${optimizedQuery}"…`, 'info', 2000);
-
-    // 2. Google Places API (New) spatial text search
+    // 2. Spatial search
     const places = await searchPlacesInPolygon(optimizedQuery, polygon, apiKey);
 
     // 3. Render markers & sidebar
-    const minRating = parseFloat(document.getElementById('minRatingSlider').value);
+    const minRating = parseFloat(document.getElementById('minRatingSlider')?.value || '1.0');
     setPlaces(places, polygon, minRating);
 
     const filtered = applyFilters();
     if (filtered.length > 0) {
       showToast(`Found ${filtered.length} matching places!`, 'success');
-      // Ensure sidebar is visible on desktop / toggle open
       toggleSidebar(true);
     } else {
-      showToast('No places matched your search and rating criteria.', 'warning');
+      showToast('No places found in the selected boundary. Try drawing a larger area.', 'warning');
     }
 
   } catch (err) {
     console.error('Search error:', err);
-    showToast(`Search failed: ${err.message}`, 'error', 5000);
+    showToast(`Search failed: ${err.message || err}`, 'error');
   } finally {
     if (searchBtn) {
       searchBtn.disabled = false;
-      searchBtn.innerHTML = originalBtnContent;
+      searchBtn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>`;
     }
   }
 }
 
-export function handleStartDraw() {
-  if (!getMap() || !apiKey) {
-    showToast('Please enter your Google API key in Settings first.', 'warning');
-    toggleSettingsModal(true);
-    return;
-  }
+function handleStartDraw() {
   activateDrawMode();
-  showToast('Click and drag across the map to outline your search area.', 'info');
+  showToast('Click and drag across the map to outline your area.', 'info', 3500);
 }
 
-export function handleClearArea() {
+function handleClearArea() {
   clearCurrentPolygon();
   clearMarkers();
   
-  // Hide clear buttons and reset button text
   document.getElementById('clearAreaBtn')?.classList.add('hidden');
-  document.getElementById('headerClearBtn')?.classList.add('hidden');
-  
   const startText = document.getElementById('startDrawBtnText');
   if (startText) startText.innerText = 'Draw Search Area';
-  const headerText = document.getElementById('headerDrawBtnText');
-  if (headerText) headerText.innerText = 'Draw Area';
 
-  document.getElementById('searchInput').value = '';
-  showToast('Area and results cleared.', 'info');
+  showToast('Search area and markers cleared.', 'info');
 }
-
-// ==========================================================================
-// Hamburger Drawer & Navigation Coordinator
-// ==========================================================================
-
-export function toggleDrawer(open) {
-  const drawer = document.getElementById('navDrawer');
-  const backdrop = document.getElementById('drawerBackdrop');
-  if (!drawer || !backdrop) return;
-
-  const shouldOpen = open !== undefined ? open : drawer.classList.contains('translate-x-full');
-  if (shouldOpen) {
-    backdrop.classList.remove('hidden');
-    // Animate in
-    requestAnimationFrame(() => {
-      backdrop.classList.remove('opacity-0');
-      drawer.classList.remove('translate-x-full');
-    });
-    renderSearchHistory();
-  } else {
-    drawer.classList.add('translate-x-full');
-    backdrop.classList.add('opacity-0');
-    setTimeout(() => {
-      backdrop.classList.add('hidden');
-    }, 300);
-  }
-}
-
-// ==========================================================================
-// Search History Rendering
-// ==========================================================================
 
 function renderSearchHistory() {
-  const drawerContainer = document.getElementById('drawerSearchHistoryList');
+  const container = document.getElementById('drawerSearchHistoryList');
+  if (!container) return;
+
   const history = getSearchHistory();
-
-  if (drawerContainer) {
-    if (history.length === 0) {
-      drawerContainer.innerHTML = `<p class="text-xs text-slate-400 p-2 text-center">No recent searches</p>`;
-    } else {
-      drawerContainer.innerHTML = history.map(item => `
-        <button class="history-item w-full text-left px-2.5 py-1.5 text-xs hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors flex items-center justify-between group" data-query="${encodeURIComponent(item.query)}">
-          <span class="font-medium text-slate-700 group-hover:text-indigo-700 truncate">${item.query}</span>
-          <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-        </button>
-      `).join('');
-
-      drawerContainer.querySelectorAll('.history-item').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const q = decodeURIComponent(btn.dataset.query);
-          document.getElementById('searchInput').value = q;
-          toggleDrawer(false);
-          triggerAiSearch();
-        });
-      });
-    }
+  if (history.length === 0) {
+    container.innerHTML = `<p class="text-[11px] text-slate-400 italic py-1">No recent searches</p>`;
+    return;
   }
+
+  container.innerHTML = history.map(item => `
+    <div class="flex items-center justify-between p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer group transition-colors" data-query="${item.replace(/"/g, '&quot;')}">
+      <span class="text-xs text-slate-700 truncate group-hover:text-indigo-600">${item}</span>
+      <svg class="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('div[data-query]').forEach(el => {
+    el.addEventListener('click', () => {
+      const q = el.dataset.query;
+      document.getElementById('searchInput').value = q;
+      toggleDrawer(false);
+      triggerAiSearch();
+    });
+  });
 }
 
-// Voice Language Configuration
-const VOICE_LANG_STORAGE_KEY = 'ai_roadtrip_voice_lang';
-let currentVoiceLang = localStorage.getItem(VOICE_LANG_STORAGE_KEY) || 'sv-SE';
-
-export function setVoiceLanguage(lang, notify = true) {
+function setVoiceLanguage(lang, notify = true) {
   currentVoiceLang = lang;
   localStorage.setItem(VOICE_LANG_STORAGE_KEY, lang);
 
@@ -582,16 +510,17 @@ export function setVoiceLanguage(lang, notify = true) {
 // Setup Event Listeners & Boot
 // ==========================================================================
 
-document.addEventListener('DOMContentLoaded', () => {
+function initApp() {
   // Check stored API key
   const savedKey = localStorage.getItem(API_KEY_STORAGE_KEY);
   if (savedKey) {
     apiKey = savedKey;
-    document.getElementById('apiKeyInput').value = savedKey;
-    bootstrapMap();
-  } else {
-    toggleSettingsModal(true);
+    const keyInput = document.getElementById('apiKeyInput');
+    if (keyInput) keyInput.value = savedKey;
   }
+
+  // Always boot the interactive map immediately
+  bootstrapMap();
 
   // Voice Recognition Setup
   const micBtn = document.getElementById('micBtn');
@@ -643,7 +572,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Attach Modal Settings Listeners
   document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettingsAndStart);
-  document.getElementById('openSettingsBtn')?.addEventListener('click', () => toggleSettingsModal(true));
   document.getElementById('closeSettingsBtn')?.addEventListener('click', () => toggleSettingsModal(false));
 
   document.getElementById('loadDriveBtn')?.addEventListener('click', loadKeyFromDrive);
@@ -697,4 +625,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize Drive Sync
   initGoogleDriveSync();
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}

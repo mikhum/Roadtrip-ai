@@ -14,6 +14,10 @@
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 
+  <!-- Leaflet CSS & JS for universal, instant map rendering on all devices -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
   <!-- Custom Design System & Styles -->
   <link rel="stylesheet" href="css/styles.css">
 
@@ -66,7 +70,7 @@
             </button>
           </div>
           <p class="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
-            Must have <strong>Maps JavaScript API</strong>, <strong>Places API (New)</strong>, and <strong>Generative Language API</strong> enabled in Google Cloud Console.
+            Powers <strong>Gemini AI (Generative Language API)</strong> & <strong>Places API (New)</strong>. If left blank, instant OpenStreetMap place discovery is used.
           </p>
         </div>
 
@@ -101,7 +105,7 @@
         </div>
 
         <button id="saveSettingsBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl shadow-md shadow-indigo-200 transition-all active:scale-[0.99] flex items-center justify-center gap-2">
-          <span>Save & Start Map</span>
+          <span>Save Settings</span>
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
         </button>
       </div>
@@ -327,6 +331,6 @@
   </div><!-- end #mapLayerRoot -->
 
   <!-- Single bundled script — no ES modules, works on all Android browsers -->
-  <script defer src="js/bundle.js"></script>
+  <script defer src="js/bundle.js?v=2.0"></script>
 </body>
 </html>
