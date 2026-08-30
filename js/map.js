@@ -147,65 +147,127 @@ export function getInfoWindow() {
 }
 
 /**
- * Configures Google Places Autocomplete on a location search input element.
- * Supports dropdown suggestions as well as automatic Geocoding fallback on Enter key.
- * @param {HTMLInputElement} inputElement 
+ * Navigates the map to a city, region, or address using Places API (New) searchText with Geocoder fallback.
+ * @param {string} queryStr 
+ * @param {string} apiKey 
  * @param {Function} onPlaceSelected 
  */
-export function setupLocationAutocomplete(inputElement, onPlaceSelected) {
-  if (!mapInstance || !inputElement) return;
+export async function jumpToLocation(queryStr, apiKey, onPlaceSelected) {
+  if (!mapInstance || !queryStr || !queryStr.trim()) return;
+  const trimmed = queryStr.trim();
 
-  autocompleteInstance = new google.maps.places.Autocomplete(inputElement, {
-    fields: ['geometry', 'name', 'formatted_address', 'place_id']
-  });
-  autocompleteInstance.bindTo('bounds', mapInstance);
+  // 1. Try Google Places API (New) text search (guaranteed compatible with app API key)
+  if (apiKey) {
+    try {
+      const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.location,places.viewport,places.formattedAddress'
+        },
+        body: JSON.stringify({
+          textQuery: trimmed
+        })
+      });
 
-  const geocoder = new google.maps.Geocoder();
+      if (res.ok) {
+        const data = await res.json();
+        if (data.places && data.places.length > 0) {
+          const place = data.places[0];
+          if (place.viewport) {
+            const bounds = new google.maps.LatLngBounds(
+              new google.maps.LatLng(place.viewport.low.latitude, place.viewport.low.longitude),
+              new google.maps.LatLng(place.viewport.high.latitude, place.viewport.high.longitude)
+            );
+            mapInstance.fitBounds(bounds);
+          } else if (place.location) {
+            mapInstance.setCenter({ lat: place.location.latitude, lng: place.location.longitude });
+            mapInstance.setZoom(13);
+          }
 
-  function handleGeocodeResult(results, status, queryName) {
-    if (status === 'OK' && results && results[0]) {
-      const placeResult = results[0];
-      if (placeResult.geometry.viewport) {
-        mapInstance.fitBounds(placeResult.geometry.viewport);
-      } else if (placeResult.geometry.location) {
-        mapInstance.setCenter(placeResult.geometry.location);
-        mapInstance.setZoom(13);
+          if (onPlaceSelected) {
+            onPlaceSelected({
+              name: place.displayName?.text || place.formattedAddress,
+              formatted_address: place.formattedAddress,
+              location: place.location
+            });
+          }
+          return;
+        }
       }
-      inputElement.blur();
-      if (onPlaceSelected) {
-        onPlaceSelected({
-          name: queryName || placeResult.formatted_address,
-          formatted_address: placeResult.formatted_address,
-          geometry: placeResult.geometry
-        });
-      }
-    } else {
-      if (onPlaceSelected) onPlaceSelected(null, `Could not find "${queryName}". Please check the spelling.`);
+    } catch (e) {
+      console.warn('Places API (New) search failed for location jump:', e);
     }
   }
 
-  autocompleteInstance.addListener('place_changed', () => {
-    const place = autocompleteInstance.getPlace();
-    if (place && place.geometry && place.geometry.location) {
-      if (place.geometry.viewport) {
-        mapInstance.fitBounds(place.geometry.viewport);
+  // 2. Fallback to google.maps.Geocoder
+  try {
+    const geocoder = new google.maps.Geocoder();
+    geocoder.geocode({ address: trimmed }, (results, status) => {
+      if (status === 'OK' && results && results[0]) {
+        const placeResult = results[0];
+        if (placeResult.geometry.viewport) {
+          mapInstance.fitBounds(placeResult.geometry.viewport);
+        } else if (placeResult.geometry.location) {
+          mapInstance.setCenter(placeResult.geometry.location);
+          mapInstance.setZoom(13);
+        }
+        if (onPlaceSelected) {
+          onPlaceSelected({
+            name: trimmed || placeResult.formatted_address,
+            formatted_address: placeResult.formatted_address,
+            geometry: placeResult.geometry
+          });
+        }
       } else {
-        mapInstance.setCenter(place.geometry.location);
-        mapInstance.setZoom(13);
+        if (onPlaceSelected) onPlaceSelected(null, `Could not find "${trimmed}". Please check the spelling.`);
       }
-      inputElement.blur();
-      if (onPlaceSelected) {
-        onPlaceSelected(place);
+    });
+  } catch (err) {
+    if (onPlaceSelected) onPlaceSelected(null, `Could not find "${trimmed}".`);
+  }
+}
+
+/**
+ * Configures Google Places Autocomplete on a location search input element.
+ * Supports dropdown suggestions as well as automatic Places API (New) & Geocoding fallback on Enter key.
+ * @param {HTMLInputElement} inputElement 
+ * @param {string} apiKey 
+ * @param {Function} onPlaceSelected 
+ */
+export function setupLocationAutocomplete(inputElement, apiKey, onPlaceSelected) {
+  if (!mapInstance || !inputElement) return;
+
+  try {
+    autocompleteInstance = new google.maps.places.Autocomplete(inputElement, {
+      fields: ['geometry', 'name', 'formatted_address', 'place_id']
+    });
+    autocompleteInstance.bindTo('bounds', mapInstance);
+
+    autocompleteInstance.addListener('place_changed', () => {
+      const place = autocompleteInstance.getPlace();
+      if (place && place.geometry && place.geometry.location) {
+        if (place.geometry.viewport) {
+          mapInstance.fitBounds(place.geometry.viewport);
+        } else {
+          mapInstance.setCenter(place.geometry.location);
+          mapInstance.setZoom(13);
+        }
+        inputElement.blur();
+        if (onPlaceSelected) {
+          onPlaceSelected(place);
+        }
+      } else {
+        const query = place?.name || inputElement.value.trim();
+        if (query) {
+          jumpToLocation(query, apiKey, onPlaceSelected);
+        }
       }
-    } else {
-      const query = place?.name || inputElement.value.trim();
-      if (query) {
-        geocoder.geocode({ address: query }, (results, status) => {
-          handleGeocodeResult(results, status, query);
-        });
-      }
-    }
-  });
+    });
+  } catch (e) {
+    console.warn('Could not initialize google.maps.places.Autocomplete:', e);
+  }
 
   // Handle Enter keypress for directly typed city names
   inputElement.addEventListener('keydown', (e) => {
@@ -214,14 +276,8 @@ export function setupLocationAutocomplete(inputElement, onPlaceSelected) {
       const val = inputElement.value.trim();
       if (!val) return;
 
-      setTimeout(() => {
-        const place = autocompleteInstance.getPlace();
-        if (!place || !place.geometry) {
-          geocoder.geocode({ address: val }, (results, status) => {
-            handleGeocodeResult(results, status, val);
-          });
-        }
-      }, 150);
+      inputElement.blur();
+      jumpToLocation(val, apiKey, onPlaceSelected);
     }
   });
 

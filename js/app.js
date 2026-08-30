@@ -4,7 +4,7 @@
  * Google Drive OAuth sync, search history, toasts, and UI interactions.
  */
 
-import { loadGoogleMapsScript, initMap, getMap, getInfoWindow, setupLocationAutocomplete, geolocateUser } from './map.js';
+import { loadGoogleMapsScript, initMap, getMap, getInfoWindow, setupLocationAutocomplete, jumpToLocation, geolocateUser } from './map.js';
 import { initDrawing, activateDrawMode, clearCurrentPolygon, getCurrentPolygon, hasPolygon } from './draw.js';
 import { optimizeQueryWithGemini, searchPlacesInPolygon, getSearchHistory, saveSearchToHistory, clearSearchHistory } from './search.js';
 import { initMarkers, setApiKey, setPlaces, clearMarkers, applyFilters } from './markers.js';
@@ -321,13 +321,25 @@ async function bootstrapMap() {
       }
     });
 
-    // Init Autocomplete
+    // Init Autocomplete & Location Jump
     const locationInput = document.getElementById('locationSearch');
-    setupLocationAutocomplete(locationInput, (place, err) => {
+    setupLocationAutocomplete(locationInput, apiKey, (place, err) => {
       if (err) {
         showToast(err, 'warning');
       } else {
-        showToast(`Moved to ${place.name || 'selected area'}`, 'info');
+        showToast(`Moved to ${place.name || place.formatted_address || 'selected area'}`, 'info');
+      }
+    });
+
+    document.getElementById('locationJumpBtn')?.addEventListener('click', () => {
+      const val = locationInput?.value?.trim();
+      if (val) {
+        jumpToLocation(val, apiKey, (place, err) => {
+          if (err) showToast(err, 'warning');
+          else showToast(`Moved to ${place.name || place.formatted_address || val}`, 'info');
+        });
+      } else {
+        showToast('Please type a city or place name first.', 'info');
       }
     });
 
