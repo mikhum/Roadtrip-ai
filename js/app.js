@@ -310,14 +310,11 @@ async function bootstrapMap() {
         document.getElementById('drawModeNotice')?.classList.add('hidden');
         document.getElementById('floatingMapControls')?.classList.remove('hidden');
         
-        // Show clear buttons and update draw button text
+        // Show clear button and update draw button text
         document.getElementById('clearAreaBtn')?.classList.remove('hidden');
-        document.getElementById('headerClearBtn')?.classList.remove('hidden');
         
         const startText = document.getElementById('startDrawBtnText');
         if (startText) startText.innerText = 'Redraw Area';
-        const headerText = document.getElementById('headerDrawBtnText');
-        if (headerText) headerText.innerText = 'Redraw';
 
         showToast('Area defined! Enter your query or click Search.', 'info');
         
@@ -333,12 +330,13 @@ async function bootstrapMap() {
       }
     });
 
-    // Init Autocomplete & Location Jump
+    // Init Autocomplete & Location Jump (in Drawer)
     const locationInput = document.getElementById('locationSearch');
     setupLocationAutocomplete(locationInput, apiKey, (place, err) => {
       if (err) {
         showToast(err, 'warning');
       } else {
+        toggleDrawer(false);
         showToast(`Moved to ${place.name || place.formatted_address || 'selected area'}`, 'info');
       }
     });
@@ -347,8 +345,12 @@ async function bootstrapMap() {
       const val = locationInput?.value?.trim();
       if (val) {
         jumpToLocation(val, apiKey, (place, err) => {
-          if (err) showToast(err, 'warning');
-          else showToast(`Moved to ${place.name || place.formatted_address || val}`, 'info');
+          if (err) {
+            showToast(err, 'warning');
+          } else {
+            toggleDrawer(false);
+            showToast(`Moved to ${place.name || place.formatted_address || val}`, 'info');
+          }
         });
       } else {
         showToast('Please type a city or place name first.', 'info');
@@ -463,42 +465,60 @@ export function handleClearArea() {
 }
 
 // ==========================================================================
-// Search History Popover
+// Hamburger Drawer & Navigation Coordinator
+// ==========================================================================
+
+export function toggleDrawer(open) {
+  const drawer = document.getElementById('navDrawer');
+  const backdrop = document.getElementById('drawerBackdrop');
+  if (!drawer || !backdrop) return;
+
+  const shouldOpen = open !== undefined ? open : drawer.classList.contains('translate-x-full');
+  if (shouldOpen) {
+    backdrop.classList.remove('hidden');
+    // Animate in
+    requestAnimationFrame(() => {
+      backdrop.classList.remove('opacity-0');
+      drawer.classList.remove('translate-x-full');
+    });
+    renderSearchHistory();
+  } else {
+    drawer.classList.add('translate-x-full');
+    backdrop.classList.add('opacity-0');
+    setTimeout(() => {
+      backdrop.classList.add('hidden');
+    }, 300);
+  }
+}
+
+// ==========================================================================
+// Search History Rendering
 // ==========================================================================
 
 function renderSearchHistory() {
-  const container = document.getElementById('searchHistoryList');
-  if (!container) return;
-
+  const drawerContainer = document.getElementById('drawerSearchHistoryList');
   const history = getSearchHistory();
-  if (history.length === 0) {
-    container.innerHTML = `<p class="text-xs text-gray-400 p-3 text-center">No recent searches</p>`;
-    return;
-  }
 
-  container.innerHTML = history.map(item => `
-    <button class="history-item w-full text-left px-3 py-2 text-xs hover:bg-indigo-50 hover:text-indigo-700 rounded-md transition-colors flex items-center justify-between group" data-query="${encodeURIComponent(item.query)}">
-      <span class="font-medium text-gray-700 group-hover:text-indigo-700 truncate">${item.query}</span>
-      <svg class="w-3.5 h-3.5 text-gray-400 group-hover:text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-    </button>
-  `).join('');
+  if (drawerContainer) {
+    if (history.length === 0) {
+      drawerContainer.innerHTML = `<p class="text-xs text-slate-400 p-2 text-center">No recent searches</p>`;
+    } else {
+      drawerContainer.innerHTML = history.map(item => `
+        <button class="history-item w-full text-left px-2.5 py-1.5 text-xs hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors flex items-center justify-between group" data-query="${encodeURIComponent(item.query)}">
+          <span class="font-medium text-slate-700 group-hover:text-indigo-700 truncate">${item.query}</span>
+          <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+        </button>
+      `).join('');
 
-  container.querySelectorAll('.history-item').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const q = decodeURIComponent(btn.dataset.query);
-      document.getElementById('searchInput').value = q;
-      document.getElementById('searchHistoryPopover').classList.add('hidden');
-      triggerAiSearch();
-    });
-  });
-}
-
-function toggleSearchHistoryPopover() {
-  const popover = document.getElementById('searchHistoryPopover');
-  if (!popover) return;
-  popover.classList.toggle('hidden');
-  if (!popover.classList.contains('hidden')) {
-    renderSearchHistory();
+      drawerContainer.querySelectorAll('.history-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const q = decodeURIComponent(btn.dataset.query);
+          document.getElementById('searchInput').value = q;
+          toggleDrawer(false);
+          triggerAiSearch();
+        });
+      });
+    }
   }
 }
 
@@ -514,23 +534,23 @@ export function setVoiceLanguage(lang, notify = true) {
     voiceController.setLanguage(lang);
   }
 
-  const flagEl = document.getElementById('voiceLangFlag');
-  const textEl = document.getElementById('voiceLangText');
   const selectEl = document.getElementById('voiceLangSelect');
   const searchInput = document.getElementById('searchInput');
+  const svBtn = document.getElementById('langOptionSv');
+  const enBtn = document.getElementById('langOptionEn');
 
   if (lang === 'sv-SE') {
-    if (flagEl) flagEl.innerText = '🇸🇪';
-    if (textEl) textEl.innerText = 'SV';
     if (selectEl) selectEl.value = 'sv-SE';
+    if (svBtn) svBtn.className = 'flex items-center justify-center gap-2 py-2 px-3 rounded-xl border-2 border-indigo-600 bg-indigo-50 text-indigo-700 text-xs font-bold shadow-xs transition-all';
+    if (enBtn) enBtn.className = 'flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-semibold shadow-2xs transition-all';
     if (searchInput && !searchInput.value) {
       searchInput.placeholder = "Fråga Gemini AI (t.ex. 'Hotell med laddplats och pool')…";
     }
     if (notify) showToast('Talspråk inställt på Svenska 🇸🇪', 'info');
   } else {
-    if (flagEl) flagEl.innerText = '🇬🇧';
-    if (textEl) textEl.innerText = 'EN';
     if (selectEl) selectEl.value = 'en-US';
+    if (enBtn) enBtn.className = 'flex items-center justify-center gap-2 py-2 px-3 rounded-xl border-2 border-indigo-600 bg-indigo-50 text-indigo-700 text-xs font-bold shadow-xs transition-all';
+    if (svBtn) svBtn.className = 'flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-semibold shadow-2xs transition-all';
     if (searchInput && !searchInput.value) {
       searchInput.placeholder = "Ask Gemini AI (e.g., 'Boutique hotels with EV charging and pool')…";
     }
@@ -576,36 +596,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Attach Voice Language Listeners
-  document.getElementById('voiceLangToggleBtn')?.addEventListener('click', () => {
-    const nextLang = currentVoiceLang === 'sv-SE' ? 'en-US' : 'sv-SE';
-    setVoiceLanguage(nextLang, true);
-  });
-
-  document.getElementById('voiceLangSelect')?.addEventListener('change', (e) => {
-    setVoiceLanguage(e.target.value, true);
-  });
+  // Attach Drawer Language Buttons
+  document.getElementById('langOptionSv')?.addEventListener('click', () => setVoiceLanguage('sv-SE', true));
+  document.getElementById('langOptionEn')?.addEventListener('click', () => setVoiceLanguage('en-US', true));
+  document.getElementById('voiceLangSelect')?.addEventListener('change', (e) => setVoiceLanguage(e.target.value, true));
 
   // Initialize Voice Language UI
   setVoiceLanguage(currentVoiceLang, false);
 
-  // Attach DOM Listeners
+  // Hamburger Drawer Toggles
+  document.getElementById('hamburgerBtn')?.addEventListener('click', () => toggleDrawer(true));
+  document.getElementById('closeDrawerBtn')?.addEventListener('click', () => toggleDrawer(false));
+  document.getElementById('drawerBackdrop')?.addEventListener('click', () => toggleDrawer(false));
+
+  // Drawer Clear Button
+  document.getElementById('drawerClearBtn')?.addEventListener('click', () => {
+    handleClearArea();
+    toggleDrawer(false);
+  });
+
+  // Drawer Settings Button
+  document.getElementById('drawerOpenSettingsBtn')?.addEventListener('click', () => {
+    toggleDrawer(false);
+    toggleSettingsModal(true);
+  });
+
+  // Attach Modal Settings Listeners
   document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettingsAndStart);
   document.getElementById('openSettingsBtn')?.addEventListener('click', () => toggleSettingsModal(true));
-  document.getElementById('openSettingsBtnMobile')?.addEventListener('click', () => toggleSettingsModal(true));
   document.getElementById('closeSettingsBtn')?.addEventListener('click', () => toggleSettingsModal(false));
 
   document.getElementById('loadDriveBtn')?.addEventListener('click', loadKeyFromDrive);
   document.getElementById('saveDriveBtn')?.addEventListener('click', saveKeyToDrive);
 
-  // Draw Area Buttons (Map floating pill & Header button)
+  // Map Floating Draw & Clear Buttons
   document.getElementById('startDrawBtn')?.addEventListener('click', handleStartDraw);
-  document.getElementById('headerDrawBtn')?.addEventListener('click', handleStartDraw);
-
-  // Clear Area Buttons (Map floating pill & Header button)
   document.getElementById('clearAreaBtn')?.addEventListener('click', handleClearArea);
-  document.getElementById('headerClearBtn')?.addEventListener('click', handleClearArea);
 
+  // Search Submit (Icon in input bar + Enter key)
   document.getElementById('searchBtn')?.addEventListener('click', triggerAiSearch);
   document.getElementById('searchInput')?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') triggerAiSearch();
@@ -640,21 +668,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('toggleSidebarBtn')?.addEventListener('click', () => toggleSidebar());
   document.getElementById('closeSidebarBtn')?.addEventListener('click', () => toggleSidebar(false));
 
-  // Search History Toggle
-  document.getElementById('historyBtn')?.addEventListener('click', toggleSearchHistoryPopover);
+  // Drawer History Clear
   document.getElementById('clearHistoryBtn')?.addEventListener('click', () => {
     clearSearchHistory();
     renderSearchHistory();
     showToast('Search history cleared.', 'info');
-  });
-
-  // Close history popover when clicking outside
-  document.addEventListener('click', (e) => {
-    const popover = document.getElementById('searchHistoryPopover');
-    const historyBtn = document.getElementById('historyBtn');
-    if (popover && !popover.classList.contains('hidden') && !popover.contains(e.target) && !historyBtn.contains(e.target)) {
-      popover.classList.add('hidden');
-    }
   });
 
   // Initialize Drive Sync

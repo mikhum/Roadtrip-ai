@@ -267,6 +267,17 @@ h1, h2, h3, .font-heading {
     opacity: 0;
     transform: translateX(40px) scale(0.95);
   }
+/* ==========================================================================
+   Navigation Drawer (Hamburger Menu)
+   ========================================================================== */
+
+#navDrawer {
+  transition: transform var(--transition-spring);
+  will-change: transform;
+}
+
+#drawerBackdrop {
+  transition: opacity var(--transition-normal);
 }
 
 /* ==========================================================================
