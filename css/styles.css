@@ -83,28 +83,51 @@
   padding: 0;
 }
 
-html, body {
-  font-family: var(--font-sans);
-  background-color: var(--bg-app);
-  color: var(--text-main);
+html {
   height: 100%;
   height: 100vh;
   height: 100dvh;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  /* Use --app-height set by JS for reliable height on Android Chrome (address bar bug) */
+  height: var(--app-height, 100vh);
   width: 100%;
+  max-height: var(--app-height, 100vh);
   margin: 0;
   padding: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 #map {
-  width: 100%;
-  height: 100%;
-  min-height: 100%;
-  position: absolute;
-  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
   touch-action: pan-x pan-y pinch-zoom;
+}
+
+/* Ensure map viewport fills remaining space */
+.map-viewport {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #e5e7eb;
 }
 
 /* Headings font */

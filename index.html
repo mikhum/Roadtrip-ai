@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>AIRoadtrip — AI-Powered Freehand Map Discovery</title>
   <meta name="description" content="Discover hotels, restaurants, viewpoints, and road trip stops by drawing custom search boundaries on the map with Gemini AI query optimization.">
 
@@ -21,7 +21,16 @@
   <script src="https://apis.google.com/js/api.js" onload="window.gapiLoaded && window.gapiLoaded()"></script>
   <script src="https://accounts.google.com/gsi/client" onload="window.gisLoaded && window.gisLoaded()"></script>
 </head>
-<body class="h-[100dvh] flex flex-col relative bg-slate-50 text-slate-900 select-none overflow-hidden">
+<body>
+  <!-- Fix viewport height on Android/iOS (address bar bug) -->
+  <script>
+    function setAppHeight() {
+      document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
+    }
+    setAppHeight();
+    window.addEventListener('resize', setAppHeight);
+    window.addEventListener('orientationchange', function() { setTimeout(setAppHeight, 100); });
+  </script>
 
   <!-- Toast Notification Container -->
   <div id="toast-container"></div>
@@ -276,7 +285,7 @@
     </aside>
 
     <!-- Map Viewport -->
-    <div class="flex-1 relative bg-slate-100 w-full h-full min-h-0">
+    <div class="map-viewport bg-slate-100">
       <!-- Google Map Container -->
       <div id="map" class="absolute inset-0 w-full h-full"></div>
       
