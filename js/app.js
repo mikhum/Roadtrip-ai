@@ -264,17 +264,31 @@ export function saveSettingsAndStart() {
  * Loads Maps script and sets up all submodules.
  */
 async function bootstrapMap() {
+  const overlay = document.getElementById('mapOverlay');
+  const overlayText = document.getElementById('overlayText');
+  const overlaySpinner = document.getElementById('overlaySpinner');
+  const overlayOpenSettingsBtn = document.getElementById('overlayOpenSettingsBtn');
+
   if (!apiKey) {
+    if (overlay) overlay.classList.remove('hidden');
+    if (overlaySpinner) overlaySpinner.classList.add('hidden');
+    if (overlayText) {
+      overlayText.className = 'text-slate-600 font-semibold text-sm';
+      overlayText.innerText = 'Please enter your Google Cloud API key to start the map.';
+    }
+    if (overlayOpenSettingsBtn) overlayOpenSettingsBtn.classList.remove('hidden');
     toggleSettingsModal(true);
     return;
   }
 
-  const overlay = document.getElementById('mapOverlay');
-  const overlayText = document.getElementById('overlayText');
-
   try {
     if (overlay) overlay.classList.remove('hidden');
-    if (overlayText) overlayText.innerText = 'Loading modern map…';
+    if (overlaySpinner) overlaySpinner.classList.remove('hidden');
+    if (overlayOpenSettingsBtn) overlayOpenSettingsBtn.classList.add('hidden');
+    if (overlayText) {
+      overlayText.className = 'text-indigo-600 font-bold text-sm tracking-wide';
+      overlayText.innerText = 'Loading modern map…';
+    }
 
     await loadGoogleMapsScript(apiKey);
 
