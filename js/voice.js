@@ -105,6 +105,10 @@ class VoiceInputController {
       this.recognition.lang = lang;
     }
   }
+
+  getLanguage() {
+    return this.lang;
+  }
 }
 
 export default VoiceInputController;

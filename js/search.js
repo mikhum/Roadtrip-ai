@@ -59,7 +59,7 @@ export async function optimizeQueryWithGemini(userPrompt, apiKey) {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `You are an AI assistant that converts user road trip / travel search requests into optimal search phrases for Google Places API (New) Text Search.
+              text: `You are an AI assistant that converts user road trip / travel search requests (in Swedish, English, or any language) into optimal search phrases for Google Places API (New) Text Search.
 User request: "${promptText}".
 Respond ONLY with a valid JSON object in this format: {"searchQuery": "optimized search phrase"}. Do not include markdown code block backticks if possible, just the raw JSON.`
             }]

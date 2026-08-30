@@ -490,6 +490,42 @@ function toggleSearchHistoryPopover() {
   }
 }
 
+// Voice Language Configuration
+const VOICE_LANG_STORAGE_KEY = 'ai_roadtrip_voice_lang';
+let currentVoiceLang = localStorage.getItem(VOICE_LANG_STORAGE_KEY) || 'sv-SE';
+
+export function setVoiceLanguage(lang, notify = true) {
+  currentVoiceLang = lang;
+  localStorage.setItem(VOICE_LANG_STORAGE_KEY, lang);
+
+  if (voiceController) {
+    voiceController.setLanguage(lang);
+  }
+
+  const flagEl = document.getElementById('voiceLangFlag');
+  const textEl = document.getElementById('voiceLangText');
+  const selectEl = document.getElementById('voiceLangSelect');
+  const searchInput = document.getElementById('searchInput');
+
+  if (lang === 'sv-SE') {
+    if (flagEl) flagEl.innerText = '🇸🇪';
+    if (textEl) textEl.innerText = 'SV';
+    if (selectEl) selectEl.value = 'sv-SE';
+    if (searchInput && !searchInput.value) {
+      searchInput.placeholder = "Fråga Gemini AI (t.ex. 'Hotell med laddplats och pool')…";
+    }
+    if (notify) showToast('Talspråk inställt på Svenska 🇸🇪', 'info');
+  } else {
+    if (flagEl) flagEl.innerText = '🇬🇧';
+    if (textEl) textEl.innerText = 'EN';
+    if (selectEl) selectEl.value = 'en-US';
+    if (searchInput && !searchInput.value) {
+      searchInput.placeholder = "Ask Gemini AI (e.g., 'Boutique hotels with EV charging and pool')…";
+    }
+    if (notify) showToast('Spoken language set to English 🇬🇧', 'info');
+  }
+}
+
 // ==========================================================================
 // Setup Event Listeners & Boot
 // ==========================================================================
@@ -508,24 +544,38 @@ document.addEventListener('DOMContentLoaded', () => {
   // Voice Recognition Setup
   const micBtn = document.getElementById('micBtn');
   voiceController = new VoiceInputController({
-    lang: 'en-US',
+    lang: currentVoiceLang,
     onStart: () => {
       if (micBtn) micBtn.classList.add('mic-active');
-      showToast('Listening to your query…', 'info');
+      const langLabel = currentVoiceLang === 'sv-SE' ? 'Svenska 🇸🇪' : 'English 🇬🇧';
+      showToast(`Lyssnar (${langLabel})…`, 'info');
     },
     onEnd: () => {
       if (micBtn) micBtn.classList.remove('mic-active');
     },
     onResult: (transcript) => {
       document.getElementById('searchInput').value = transcript;
-      showToast(`Heard: "${transcript}"`, 'success');
+      showToast(`Uppfattade / Heard: "${transcript}"`, 'success');
       triggerAiSearch();
     },
     onError: (err) => {
       if (micBtn) micBtn.classList.remove('mic-active');
-      showToast('Could not recognize speech. Please try again.', 'warning');
+      showToast('Kunde inte uppfatta tal / Could not recognize speech.', 'warning');
     }
   });
+
+  // Attach Voice Language Listeners
+  document.getElementById('voiceLangToggleBtn')?.addEventListener('click', () => {
+    const nextLang = currentVoiceLang === 'sv-SE' ? 'en-US' : 'sv-SE';
+    setVoiceLanguage(nextLang, true);
+  });
+
+  document.getElementById('voiceLangSelect')?.addEventListener('change', (e) => {
+    setVoiceLanguage(e.target.value, true);
+  });
+
+  // Initialize Voice Language UI
+  setVoiceLanguage(currentVoiceLang, false);
 
   // Attach DOM Listeners
   document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettingsAndStart);
