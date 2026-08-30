@@ -84,31 +84,22 @@
 }
 
 html {
-  height: 100%;
-  height: 100vh;
-  height: 100dvh;
   overflow: hidden;
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--bg-app);
+  background: transparent;
   color: var(--text-main);
-  /* Use --app-height set by JS for reliable height on Android Chrome (address bar bug) */
-  height: var(--app-height, 100vh);
-  width: 100%;
-  max-height: var(--app-height, 100vh);
   margin: 0;
   padding: 0;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  position: relative;
   user-select: none;
   -webkit-user-select: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
 
 #map {
   /* Position fixed: fills full viewport regardless of any parent layout.
@@ -125,13 +116,14 @@ body {
   background: #e5e7eb;
 }
 
-/* Map overlay layer - pointer events passthrough */
+/* Map overlay layer - transparent but does NOT block pointer events on the map */
 #mapLayerRoot {
   position: fixed;
   inset: 0;
-  pointer-events: none;
+  pointer-events: none;  /* Layer itself is passthrough */
   z-index: 1;
 }
+/* Each direct child is interactive */
 #mapLayerRoot > * {
   pointer-events: auto;
 }
@@ -216,7 +208,7 @@ h1, h2, h3, .font-heading {
 
 #toast-container {
   position: fixed;
-  top: calc(var(--header-height) + 16px);
+  top: calc(var(--header-h, 56px) + 16px);
   right: 20px;
   z-index: 9999;
   display: flex;
@@ -329,12 +321,13 @@ h1, h2, h3, .font-heading {
   flex-direction: column;
   overflow: hidden;
   box-shadow: 2px 0 12px rgba(0,0,0,0.08);
+  pointer-events: auto;
 }
 
 #sidebar.sidebar-collapsed {
-  transform: translateX(-100%);
+  transform: translateX(-110%);
   opacity: 0;
-  pointer-events: none;
+  pointer-events: none !important;
 }
 
 @media (max-width: 768px) {
@@ -353,8 +346,9 @@ h1, h2, h3, .font-heading {
   }
 
   #sidebar.sidebar-collapsed {
-    transform: translateY(100%);
+    transform: translateY(110%);
     opacity: 0;
+    pointer-events: none !important;
   }
 }
 
