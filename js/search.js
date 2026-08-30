@@ -150,13 +150,29 @@ export async function searchPlacesInPolygon(queryStr, polygon, apiKey) {
 }
 
 /**
- * Retrieves search history from localStorage.
+ * Retrieves search history from localStorage with format normalization.
  * @returns {Array<{query: string, translatedQuery: string, timestamp: number}>}
  */
 export function getSearchHistory() {
   try {
-    const history = localStorage.getItem(HISTORY_STORAGE_KEY);
-    return history ? JSON.parse(history) : [];
+    const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map(item => {
+        if (typeof item === 'string') {
+          return { query: item.trim(), translatedQuery: '', timestamp: Date.now() };
+        }
+        if (item && typeof item === 'object') {
+          const q = (item.query || item.userQuery || item.text || item.searchQuery || '').toString().trim();
+          const tq = (item.translatedQuery || '').toString().trim();
+          return { query: q, translatedQuery: tq, timestamp: item.timestamp || Date.now() };
+        }
+        return null;
+      })
+      .filter(item => item && item.query.length > 0);
   } catch (e) {
     console.error('Error reading search history:', e);
     return [];
@@ -169,16 +185,16 @@ export function getSearchHistory() {
  * @param {string} translatedQuery 
  */
 export function saveSearchToHistory(query, translatedQuery = '') {
-  if (!query || !query.trim()) return;
+  if (!query || typeof query !== 'string' || !query.trim()) return;
 
   try {
     let history = getSearchHistory();
-    // Remove duplicates
-    history = history.filter(item => item.query.toLowerCase() !== query.toLowerCase());
+    const qLower = query.trim().toLowerCase();
+    history = history.filter(item => item && item.query && item.query.toLowerCase() !== qLower);
 
     history.unshift({
       query: query.trim(),
-      translatedQuery: translatedQuery.trim(),
+      translatedQuery: (translatedQuery || '').trim(),
       timestamp: Date.now()
     });
 
