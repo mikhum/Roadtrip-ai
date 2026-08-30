@@ -64,7 +64,7 @@ let autocompleteInstance = null;
  */
 export function loadGoogleMapsScript(apiKey) {
   return new Promise((resolve, reject) => {
-    if (window.google && window.google.maps) {
+    if (window.google && window.google.maps && window.google.maps.Map) {
       resolve();
       return;
     }
@@ -72,10 +72,12 @@ export function loadGoogleMapsScript(apiKey) {
     // Check if script tag already exists
     const existingScript = document.getElementById('google-maps-script');
     if (existingScript) {
-      if (window.google && window.google.maps) {
+      if (window.google && window.google.maps && window.google.maps.Map) {
         resolve();
       } else {
-        existingScript.addEventListener('load', () => resolve());
+        existingScript.addEventListener('load', () => {
+          if (window.google && window.google.maps) resolve();
+        });
         existingScript.addEventListener('error', (e) => reject(e));
       }
       return;
@@ -91,13 +93,12 @@ export function loadGoogleMapsScript(apiKey) {
 
     window.__gmInitCallback = () => {
       finish();
-      delete window.__gmInitCallback;
     };
 
-    const cleanKey = encodeURIComponent(apiKey.trim());
+    const cleanKey = apiKey ? apiKey.trim() : '';
     const script = document.createElement('script');
     script.id = 'google-maps-script';
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${cleanKey}&libraries=geometry,places&callback=__gmInitCallback&loading=async`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(cleanKey)}&libraries=geometry,places&callback=__gmInitCallback`;
     script.async = true;
     script.defer = true;
 
@@ -106,7 +107,7 @@ export function loadGoogleMapsScript(apiKey) {
         if (window.google && window.google.maps) {
           finish();
         }
-      }, 150);
+      }, 100);
     };
 
     script.onerror = (e) => {

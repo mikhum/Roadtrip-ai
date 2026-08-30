@@ -362,14 +362,20 @@ async function bootstrapMap() {
 
   } catch (err) {
     console.error('Error bootstrapping map:', err);
-    if (overlayText) {
-      overlayText.className = 'text-red-500 font-bold';
-      overlayText.innerText = 'Failed to load Google Maps. Please check your API key.';
-    }
-    showToast('Failed to load Google Maps. Please verify your API key in Settings.', 'error', 6000);
+    if (overlay) overlay.classList.add('hidden');
+    showToast(`Failed to load Google Maps: ${err.message || err}`, 'error', 8000);
     toggleSettingsModal(true);
   }
 }
+
+// Google Maps global authentication failure handler
+window.gm_authFailure = () => {
+  console.error('Google Maps API Authentication Failed (gm_authFailure)');
+  const overlay = document.getElementById('mapOverlay');
+  if (overlay) overlay.classList.add('hidden');
+  showToast('Google Maps API Key Error: Please check your API key restrictions and billing in Google Cloud Console.', 'error', 9000);
+  toggleSettingsModal(true);
+};
 
 // ==========================================================================
 // Search Operations

@@ -249,7 +249,7 @@
   </header>
 
   <!-- MAIN WORKSPACE (SIDEBAR + MAP) -->
-  <main class="flex-1 flex flex-col md:flex-row relative overflow-hidden">
+  <main class="flex-1 flex flex-col md:flex-row relative overflow-hidden min-h-0 w-full h-full">
     
     <!-- Collapsible Place List Sidebar -->
     <aside id="sidebar" class="sidebar-collapsed bg-white border-r border-slate-200 flex flex-col h-full overflow-hidden shadow-sm shrink-0">
@@ -276,9 +276,9 @@
     </aside>
 
     <!-- Map Viewport -->
-    <div class="flex-1 relative bg-slate-100 w-full h-full">
+    <div class="flex-1 relative bg-slate-100 w-full h-full min-h-0">
       <!-- Google Map Container -->
-      <div id="map" class="absolute inset-0"></div>
+      <div id="map" class="absolute inset-0 w-full h-full"></div>
       
       <!-- Loading Overlay -->
       <div id="mapOverlay" class="absolute inset-0 bg-white/85 backdrop-blur-sm flex flex-col items-center justify-center z-20 hidden">
