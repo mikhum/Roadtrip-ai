@@ -170,13 +170,12 @@ h1, h2, h3, .font-heading {
 }
 
 .pac-item {
-  padding: 10px 14px !important;
+  padding: 8px 14px !important;
   cursor: pointer !important;
   font-size: 13px !important;
-  color: var(--text-main) !important;
+  color: var(--text-secondary) !important;
   border-top: 1px solid var(--border-subtle) !important;
-  display: flex !important;
-  align-items: center !important;
+  line-height: 22px !important;
   transition: background-color var(--transition-fast) ease !important;
 }
 .pac-item:first-child {
@@ -186,13 +185,14 @@ h1, h2, h3, .font-heading {
   background-color: var(--primary-light) !important;
 }
 .pac-item-query {
-  font-size: 14px !important;
+  font-size: 13px !important;
   font-weight: 600 !important;
   color: var(--text-main) !important;
+  margin-right: 4px !important;
 }
 .pac-icon {
-  margin-top: 0 !important;
-  margin-right: 10px !important;
+  margin-top: 3px !important;
+  margin-right: 8px !important;
 }
 
 /* ==========================================================================

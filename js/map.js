@@ -148,6 +148,7 @@ export function getInfoWindow() {
 
 /**
  * Configures Google Places Autocomplete on a location search input element.
+ * Supports dropdown suggestions as well as automatic Geocoding fallback on Enter key.
  * @param {HTMLInputElement} inputElement 
  * @param {Function} onPlaceSelected 
  */
@@ -155,26 +156,72 @@ export function setupLocationAutocomplete(inputElement, onPlaceSelected) {
   if (!mapInstance || !inputElement) return;
 
   autocompleteInstance = new google.maps.places.Autocomplete(inputElement, {
-    fields: ['geometry', 'name', 'formatted_address']
+    fields: ['geometry', 'name', 'formatted_address', 'place_id']
   });
   autocompleteInstance.bindTo('bounds', mapInstance);
 
+  const geocoder = new google.maps.Geocoder();
+
+  function handleGeocodeResult(results, status, queryName) {
+    if (status === 'OK' && results && results[0]) {
+      const placeResult = results[0];
+      if (placeResult.geometry.viewport) {
+        mapInstance.fitBounds(placeResult.geometry.viewport);
+      } else if (placeResult.geometry.location) {
+        mapInstance.setCenter(placeResult.geometry.location);
+        mapInstance.setZoom(13);
+      }
+      inputElement.blur();
+      if (onPlaceSelected) {
+        onPlaceSelected({
+          name: queryName || placeResult.formatted_address,
+          formatted_address: placeResult.formatted_address,
+          geometry: placeResult.geometry
+        });
+      }
+    } else {
+      if (onPlaceSelected) onPlaceSelected(null, `Could not find "${queryName}". Please check the spelling.`);
+    }
+  }
+
   autocompleteInstance.addListener('place_changed', () => {
     const place = autocompleteInstance.getPlace();
-    if (!place.geometry || !place.geometry.location) {
-      if (onPlaceSelected) onPlaceSelected(null, 'No geometry details available for selected location.');
-      return;
-    }
-
-    if (place.geometry.viewport) {
-      mapInstance.fitBounds(place.geometry.viewport);
+    if (place && place.geometry && place.geometry.location) {
+      if (place.geometry.viewport) {
+        mapInstance.fitBounds(place.geometry.viewport);
+      } else {
+        mapInstance.setCenter(place.geometry.location);
+        mapInstance.setZoom(13);
+      }
+      inputElement.blur();
+      if (onPlaceSelected) {
+        onPlaceSelected(place);
+      }
     } else {
-      mapInstance.setCenter(place.geometry.location);
-      mapInstance.setZoom(13);
+      const query = place?.name || inputElement.value.trim();
+      if (query) {
+        geocoder.geocode({ address: query }, (results, status) => {
+          handleGeocodeResult(results, status, query);
+        });
+      }
     }
+  });
 
-    if (onPlaceSelected) {
-      onPlaceSelected(place);
+  // Handle Enter keypress for directly typed city names
+  inputElement.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = inputElement.value.trim();
+      if (!val) return;
+
+      setTimeout(() => {
+        const place = autocompleteInstance.getPlace();
+        if (!place || !place.geometry) {
+          geocoder.geocode({ address: val }, (results, status) => {
+            handleGeocodeResult(results, status, val);
+          });
+        }
+      }, 150);
     }
   });
 
