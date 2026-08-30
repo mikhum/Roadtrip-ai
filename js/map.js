@@ -230,8 +230,8 @@ export async function jumpToLocation(queryStr, apiKey, onPlaceSelected) {
 }
 
 /**
- * Configures Google Places Autocomplete on a location search input element.
- * Supports dropdown suggestions as well as automatic Places API (New) & Geocoding fallback on Enter key.
+ * Configures modern city/region search and custom suggestions dropdown.
+ * Powered 100% by Google Places API (New) with zero legacy errors.
  * @param {HTMLInputElement} inputElement 
  * @param {string} apiKey 
  * @param {Function} onPlaceSelected 
@@ -239,49 +239,127 @@ export async function jumpToLocation(queryStr, apiKey, onPlaceSelected) {
 export function setupLocationAutocomplete(inputElement, apiKey, onPlaceSelected) {
   if (!mapInstance || !inputElement) return;
 
-  try {
-    autocompleteInstance = new google.maps.places.Autocomplete(inputElement, {
-      fields: ['geometry', 'name', 'formatted_address', 'place_id']
-    });
-    autocompleteInstance.bindTo('bounds', mapInstance);
+  const dropdown = document.getElementById('locationDropdown');
+  let debounceTimeout = null;
+  let currentResults = [];
 
-    autocompleteInstance.addListener('place_changed', () => {
-      const place = autocompleteInstance.getPlace();
-      if (place && place.geometry && place.geometry.location) {
-        if (place.geometry.viewport) {
-          mapInstance.fitBounds(place.geometry.viewport);
-        } else {
-          mapInstance.setCenter(place.geometry.location);
-          mapInstance.setZoom(13);
-        }
-        inputElement.blur();
-        if (onPlaceSelected) {
-          onPlaceSelected(place);
-        }
-      } else {
-        const query = place?.name || inputElement.value.trim();
-        if (query) {
-          jumpToLocation(query, apiKey, onPlaceSelected);
-        }
-      }
-    });
-  } catch (e) {
-    console.warn('Could not initialize google.maps.places.Autocomplete:', e);
+  function closeDropdown() {
+    if (dropdown) dropdown.classList.add('hidden');
   }
+
+  function renderSuggestions(places) {
+    if (!dropdown) return;
+    if (!places || places.length === 0) {
+      closeDropdown();
+      return;
+    }
+
+    currentResults = places;
+    dropdown.innerHTML = places.slice(0, 5).map((place, idx) => `
+      <div class="location-item px-3 py-2 text-xs hover:bg-indigo-50 cursor-pointer flex items-center gap-2 border-b border-slate-50 last:border-none transition-colors" data-index="${idx}">
+        <svg class="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+        <div class="min-w-0 flex-1 text-left">
+          <p class="font-semibold text-slate-800 truncate">${place.displayName?.text || place.formattedAddress}</p>
+          <p class="text-[10px] text-slate-400 truncate">${place.formattedAddress || ''}</p>
+        </div>
+      </div>
+    `).join('');
+
+    dropdown.querySelectorAll('.location-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const index = parseInt(item.dataset.index, 10);
+        const place = currentResults[index];
+        if (place) {
+          inputElement.value = place.displayName?.text || place.formattedAddress;
+          closeDropdown();
+
+          if (place.viewport) {
+            const bounds = new google.maps.LatLngBounds(
+              new google.maps.LatLng(place.viewport.low.latitude, place.viewport.low.longitude),
+              new google.maps.LatLng(place.viewport.high.latitude, place.viewport.high.longitude)
+            );
+            mapInstance.fitBounds(bounds);
+          } else if (place.location) {
+            mapInstance.setCenter({ lat: place.location.latitude, lng: place.location.longitude });
+            mapInstance.setZoom(13);
+          }
+
+          if (onPlaceSelected) {
+            onPlaceSelected({
+              name: place.displayName?.text || place.formattedAddress,
+              formatted_address: place.formattedAddress,
+              location: place.location
+            });
+          }
+        }
+      });
+    });
+
+    dropdown.classList.remove('hidden');
+  }
+
+  async function fetchCitySuggestions(query) {
+    if (!apiKey || !query || query.length < 2) {
+      closeDropdown();
+      return;
+    }
+
+    try {
+      const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.location,places.viewport,places.formattedAddress'
+        },
+        body: JSON.stringify({
+          textQuery: query
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        renderSuggestions(data.places || []);
+      }
+    } catch (e) {
+      console.warn('Autocomplete fetch error:', e);
+    }
+  }
+
+  // Real-time debounced typing listener
+  inputElement.addEventListener('input', (e) => {
+    const val = e.target.value.trim();
+    clearTimeout(debounceTimeout);
+    if (val.length < 2) {
+      closeDropdown();
+      return;
+    }
+    debounceTimeout = setTimeout(() => {
+      fetchCitySuggestions(val);
+    }, 280);
+  });
 
   // Handle Enter keypress for directly typed city names
   inputElement.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      closeDropdown();
       const val = inputElement.value.trim();
       if (!val) return;
 
       inputElement.blur();
       jumpToLocation(val, apiKey, onPlaceSelected);
+    } else if (e.key === 'Escape') {
+      closeDropdown();
     }
   });
 
-  return autocompleteInstance;
+  // Close dropdown on outside click
+  document.addEventListener('click', (e) => {
+    if (!inputElement.contains(e.target) && (!dropdown || !dropdown.contains(e.target))) {
+      closeDropdown();
+    }
+  });
 }
 
 /**

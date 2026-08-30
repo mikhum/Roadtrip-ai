@@ -156,43 +156,16 @@ h1, h2, h3, .font-heading {
   background: #ffffff !important;
 }
 
-/* Google Places Autocomplete dropdown */
+/* Suppress legacy Google Autocomplete widget overlay to prevent error dialogs */
 .pac-container {
-  z-index: 99999 !important;
-  border-radius: var(--radius-md) !important;
-  border: 1px solid var(--border) !important;
-  box-shadow: var(--shadow-xl) !important;
-  font-family: var(--font-sans) !important;
-  margin-top: 6px !important;
-  background-color: var(--surface) !important;
-  overflow: hidden !important;
-  padding: 4px 0 !important;
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
 }
 
-.pac-item {
-  padding: 8px 14px !important;
-  cursor: pointer !important;
-  font-size: 13px !important;
-  color: var(--text-secondary) !important;
-  border-top: 1px solid var(--border-subtle) !important;
-  line-height: 22px !important;
-  transition: background-color var(--transition-fast) ease !important;
-}
-.pac-item:first-child {
-  border-top: none !important;
-}
-.pac-item:hover, .pac-item-selected {
-  background-color: var(--primary-light) !important;
-}
-.pac-item-query {
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  color: var(--text-main) !important;
-  margin-right: 4px !important;
-}
-.pac-icon {
-  margin-top: 3px !important;
-  margin-right: 8px !important;
+#locationDropdown {
+  animation: toast-slide-in 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* ==========================================================================

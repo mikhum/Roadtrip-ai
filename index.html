@@ -118,13 +118,16 @@
     <!-- Search & Filter Controls -->
     <div class="flex-1 flex flex-col sm:flex-row items-center gap-2.5 w-full md:max-w-5xl">
       
-      <!-- Location Jump (Autocomplete + Search) -->
+      <!-- Location Jump (Direct Search + Custom Suggestions) -->
       <div class="relative w-full sm:w-48 shrink-0 flex items-center">
-        <input type="text" id="locationSearch" placeholder="Jump to city / region…" class="w-full pl-8 pr-7 py-2 text-xs font-medium border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none bg-slate-50/70 hover:bg-slate-50 transition-colors">
+        <input type="text" id="locationSearch" placeholder="Jump to city / region…" autocomplete="off" class="w-full pl-8 pr-7 py-2 text-xs font-medium border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none bg-slate-50/70 hover:bg-slate-50 transition-colors">
         <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
         <button id="locationJumpBtn" type="button" class="absolute right-2 text-slate-400 hover:text-indigo-600 p-1 rounded-md transition-colors" title="Jump to city">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
         </button>
+
+        <!-- Custom Suggestions Dropdown Container -->
+        <div id="locationDropdown" class="absolute left-0 top-full mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-50 hidden max-h-56 overflow-y-auto"></div>
       </div>
 
       <!-- Gemini AI Prompt Input Bar -->
