@@ -72,26 +72,45 @@ export function loadGoogleMapsScript(apiKey) {
     // Check if script tag already exists
     const existingScript = document.getElementById('google-maps-script');
     if (existingScript) {
-      existingScript.onload = () => resolve();
-      existingScript.onerror = (e) => reject(e);
+      if (window.google && window.google.maps) {
+        resolve();
+      } else {
+        existingScript.addEventListener('load', () => resolve());
+        existingScript.addEventListener('error', (e) => reject(e));
+      }
       return;
     }
 
+    let isResolved = false;
+    function finish() {
+      if (!isResolved) {
+        isResolved = true;
+        resolve();
+      }
+    }
+
+    window.__gmInitCallback = () => {
+      finish();
+      delete window.__gmInitCallback;
+    };
+
+    const cleanKey = encodeURIComponent(apiKey.trim());
     const script = document.createElement('script');
     script.id = 'google-maps-script';
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&libraries=geometry,places&loading=async`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${cleanKey}&libraries=geometry,places&callback=__gmInitCallback&loading=async`;
     script.async = true;
     script.defer = true;
 
-    // Use callback or window onload
-    window.__gmInitCallback = () => {
-      resolve();
-      delete window.__gmInitCallback;
+    script.onload = () => {
+      setTimeout(() => {
+        if (window.google && window.google.maps) {
+          finish();
+        }
+      }, 150);
     };
-    script.src += `&callback=__gmInitCallback`;
 
-    script.onerror = () => {
-      reject(new Error('Failed to load Google Maps API. Please check your API key and network connection.'));
+    script.onerror = (e) => {
+      reject(new Error('Failed to load Google Maps API. Please verify your API key and internet connection.'));
     };
 
     document.head.appendChild(script);

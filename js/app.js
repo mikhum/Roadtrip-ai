@@ -281,6 +281,18 @@ async function bootstrapMap() {
     const map = initMap('map');
     const infoWindow = getInfoWindow();
 
+    // Trigger map resize for mobile Android browsers to ensure tile rendering
+    setTimeout(() => {
+      if (window.google && window.google.maps && map) {
+        google.maps.event.trigger(map, 'resize');
+      }
+    }, 150);
+    setTimeout(() => {
+      if (window.google && window.google.maps && map) {
+        google.maps.event.trigger(map, 'resize');
+      }
+    }, 450);
+
     // Init Markers & Sidebar
     const sidebarList = document.getElementById('sidebarList');
     const sidebarCount = document.getElementById('sidebarCount');
