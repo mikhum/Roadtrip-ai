@@ -1,15 +1,16 @@
 /**
- * AIRoadtrip — Freehand Polygon Drawing Module (Leaflet Engine)
- * Smooth mouse, pen, and multi-touch freehand search boundary drawing.
+ * AIRoadtrip — Freehand Polygon Drawing Module
+ * Enables the user to draw freehand search boundaries on the Google Map using mouse or touch gestures.
  */
 
 let mapInstance = null;
 let mapContainer = null;
 let currentPolygon = null;
-let currentPoints = [];
 let freehandPolyline = null;
+let freehandPath = [];
 let isDrawingActive = false;
 let isModeEnabled = false;
+let boundEventListeners = [];
 
 let callbacks = {
   onDrawStart: () => {},
@@ -18,251 +19,227 @@ let callbacks = {
 };
 
 /**
- * Initialize the drawing module with Leaflet map and container references.
- * @param {L.Map} map 
+ * Initialize the drawing module with map and container references.
+ * @param {google.maps.Map} map 
  * @param {HTMLElement} container 
  * @param {Object} cbs 
  */
 export function initDrawing(map, container, cbs = {}) {
   mapInstance = map;
-  mapContainer = typeof container === 'string' ? document.getElementById(container) : container;
+  mapContainer = container;
   callbacks = { ...callbacks, ...cbs };
-
-  // Remove existing listeners if any
-  cleanupListeners();
-  setupListeners();
 }
 
 /**
- * Converts screen/client pixel coordinates to Leaflet LatLng.
- * @param {MouseEvent|TouchEvent|PointerEvent} e 
- * @returns {L.LatLng|null}
+ * Converts screen/client pixel coordinates to Google Maps LatLng.
+ * @param {MouseEvent|TouchEvent} e 
+ * @returns {google.maps.LatLng}
  */
 function getLatLngFromEvent(e) {
   if (!mapInstance || !mapContainer) return null;
 
   const rect = mapContainer.getBoundingClientRect();
-  const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
-  const clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
+  const clientX = e.touches && e.touches.length > 0 ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches && e.touches.length > 0 ? e.touches[0].clientY : e.clientY;
 
-  if (clientX === undefined || clientY === undefined) return null;
+  const point = new google.maps.Point(clientX - rect.left, clientY - rect.top);
+  const projection = mapInstance.getProjection();
+  const bounds = mapInstance.getBounds();
 
-  const containerPoint = L.point(clientX - rect.left, clientY - rect.top);
-  return mapInstance.containerPointToLatLng(containerPoint);
+  if (!projection || !bounds) return null;
+
+  const ne = bounds.getNorthEast();
+  const sw = bounds.getSouthWest();
+  const scale = Math.pow(2, mapInstance.getZoom());
+
+  const worldPoint = new google.maps.Point(
+    (point.x / scale) + projection.fromLatLngToPoint(new google.maps.LatLng(ne.lat(), sw.lng())).x,
+    (point.y / scale) + projection.fromLatLngToPoint(new google.maps.LatLng(ne.lat(), sw.lng())).y
+  );
+
+  return projection.fromPointToLatLng(worldPoint);
 }
 
+/**
+ * Starts freehand path recording.
+ */
 function handleStart(e) {
   if (!isModeEnabled) return;
-  e.preventDefault();
+  if (e.target.closest('#map') || e.target === mapContainer) {
+    e.preventDefault();
+  }
 
   isDrawingActive = true;
   const latLng = getLatLngFromEvent(e);
   if (!latLng) return;
 
-  currentPoints = [latLng];
+  freehandPath = [latLng];
 
   // Remove existing polygon if redrawing
   if (currentPolygon) {
-    mapInstance.removeLayer(currentPolygon);
+    currentPolygon.setMap(null);
     currentPolygon = null;
   }
 
   if (freehandPolyline) {
-    mapInstance.removeLayer(freehandPolyline);
+    freehandPolyline.setMap(null);
     freehandPolyline = null;
   }
 
   callbacks.onDrawStart();
 }
 
+/**
+ * Appends points to freehand path while dragging.
+ */
 function handleMove(e) {
   if (!isModeEnabled || !isDrawingActive) return;
-  e.preventDefault();
+  if (e.target.closest('#map') || e.target === mapContainer) {
+    e.preventDefault();
+  }
 
   const latLng = getLatLngFromEvent(e);
   if (!latLng) return;
 
-  // Don't add duplicate points
-  const last = currentPoints[currentPoints.length - 1];
-  if (last && Math.abs(last.lat - latLng.lat) < 0.00001 && Math.abs(last.lng - latLng.lng) < 0.00001) {
-    return;
-  }
-
-  currentPoints.push(latLng);
+  freehandPath.push(latLng);
 
   if (freehandPolyline) {
-    freehandPolyline.setLatLngs(currentPoints);
+    freehandPolyline.setPath(freehandPath);
   } else {
-    freehandPolyline = L.polyline(currentPoints, {
-      color: '#4f46e5',
-      weight: 3,
-      opacity: 0.85,
-      lineCap: 'round',
-      lineJoin: 'round'
-    }).addTo(mapInstance);
+    freehandPolyline = new google.maps.Polyline({
+      path: freehandPath,
+      strokeColor: '#4f46e5',
+      strokeOpacity: 0.85,
+      strokeWeight: 3,
+      map: mapInstance
+    });
   }
 }
 
-function handleEnd(e) {
+/**
+ * Finalizes freehand drawing and creates a Google Maps Polygon.
+ */
+function handleEnd() {
   if (!isModeEnabled || !isDrawingActive) return;
-  if (e) e.preventDefault();
 
   isDrawingActive = false;
   deactivateDrawMode();
 
   if (freehandPolyline) {
-    mapInstance.removeLayer(freehandPolyline);
+    freehandPolyline.setMap(null);
     freehandPolyline = null;
   }
 
   // Need at least 3 points to form a valid polygon
-  if (currentPoints.length < 3) {
-    currentPoints = [];
+  if (freehandPath.length < 3) {
+    freehandPath = [];
     callbacks.onDrawCancel();
     return;
   }
 
-  // Create closed polygon
-  currentPolygon = L.polygon(currentPoints, {
-    color: '#4f46e5',
-    weight: 2.5,
-    opacity: 0.9,
+  currentPolygon = new google.maps.Polygon({
+    paths: freehandPath,
+    strokeColor: '#4f46e5',
+    strokeOpacity: 0.9,
+    strokeWeight: 2.5,
     fillColor: '#4f46e5',
-    fillOpacity: 0.18,
-    interactive: false
-  }).addTo(mapInstance);
+    fillOpacity: 0.15,
+    clickable: false,
+    map: mapInstance
+  });
 
   callbacks.onDrawComplete(currentPolygon);
 }
 
-function setupListeners() {
-  if (!mapContainer) return;
-
-  // Mouse & Touch events
-  mapContainer.addEventListener('mousedown', handleStart, { passive: false });
-  window.addEventListener('mousemove', handleMove, { passive: false });
-  window.addEventListener('mouseup', handleEnd, { passive: false });
-
-  mapContainer.addEventListener('touchstart', handleStart, { passive: false });
-  window.addEventListener('touchmove', handleMove, { passive: false });
-  window.addEventListener('touchend', handleEnd, { passive: false });
-  window.addEventListener('touchcancel', handleEnd, { passive: false });
-}
-
-function cleanupListeners() {
-  if (!mapContainer) return;
-  mapContainer.removeEventListener('mousedown', handleStart);
-  window.removeEventListener('mousemove', handleMove);
-  window.removeEventListener('mouseup', handleEnd);
-
-  mapContainer.removeEventListener('touchstart', handleStart);
-  window.removeEventListener('touchmove', handleMove);
-  window.removeEventListener('touchend', handleEnd);
-  window.removeEventListener('touchcancel', handleEnd);
-}
-
 /**
- * Activates freehand drawing mode and locks map panning.
+ * Activates freehand drawing mode on the map.
  */
 export function activateDrawMode() {
-  if (!mapInstance) return;
+  if (!mapInstance || !mapContainer || isModeEnabled) return;
+
   isModeEnabled = true;
-  isDrawingActive = false;
 
-  // Disable map navigation so gestures draw instead of panning/zooming
-  mapInstance.dragging.disable();
-  mapInstance.touchZoom.disable();
-  mapInstance.doubleClickZoom.disable();
-  mapInstance.scrollWheelZoom.disable();
-  mapInstance.boxZoom.disable();
-  mapInstance.keyboard.disable();
-  if (mapInstance.tap) mapInstance.tap.disable();
+  // Lock map interaction during draw
+  mapInstance.setOptions({
+    draggable: false,
+    gestureHandling: 'none',
+    draggableCursor: 'crosshair'
+  });
 
-  if (mapContainer) {
-    mapContainer.style.cursor = 'crosshair';
-  }
+  const events = [
+    { type: 'mousedown', fn: handleStart },
+    { type: 'touchstart', fn: handleStart },
+    { type: 'mousemove', fn: handleMove },
+    { type: 'touchmove', fn: handleMove },
+    { type: 'mouseup', fn: handleEnd },
+    { type: 'touchend', fn: handleEnd },
+    { type: 'mouseleave', fn: handleEnd }
+  ];
+
+  events.forEach(({ type, fn }) => {
+    mapContainer.addEventListener(type, fn, { passive: false });
+    boundEventListeners.push({ type, fn });
+  });
 }
 
 /**
- * Deactivates freehand drawing mode and restores map navigation.
+ * Deactivates freehand drawing mode and restores regular map interaction.
  */
 export function deactivateDrawMode() {
-  if (!mapInstance) return;
   isModeEnabled = false;
   isDrawingActive = false;
 
-  mapInstance.dragging.enable();
-  mapInstance.touchZoom.enable();
-  mapInstance.doubleClickZoom.enable();
-  mapInstance.scrollWheelZoom.enable();
-  mapInstance.boxZoom.enable();
-  mapInstance.keyboard.enable();
-  if (mapInstance.tap) mapInstance.tap.enable();
-
-  if (mapContainer) {
-    mapContainer.style.cursor = '';
+  if (mapInstance) {
+    mapInstance.setOptions({
+      draggable: true,
+      gestureHandling: 'greedy',
+      draggableCursor: ''
+    });
   }
+
+  boundEventListeners.forEach(({ type, fn }) => {
+    if (mapContainer) {
+      mapContainer.removeEventListener(type, fn);
+    }
+  });
+  boundEventListeners = [];
 }
 
 /**
- * Clears current polygon and path from map.
+ * Clears the currently drawn polygon from the map.
  */
 export function clearCurrentPolygon() {
-  if (currentPolygon && mapInstance) {
-    mapInstance.removeLayer(currentPolygon);
+  if (currentPolygon) {
+    currentPolygon.setMap(null);
     currentPolygon = null;
   }
-  if (freehandPolyline && mapInstance) {
-    mapInstance.removeLayer(freehandPolyline);
+  if (freehandPolyline) {
+    freehandPolyline.setMap(null);
     freehandPolyline = null;
   }
-  currentPoints = [];
+  freehandPath = [];
 }
 
 /**
- * Returns the currently drawn polygon or null.
- * @returns {L.Polygon|null}
+ * Returns the currently active polygon instance.
+ * @returns {google.maps.Polygon|null}
  */
 export function getCurrentPolygon() {
   return currentPolygon;
 }
 
 /**
- * Returns raw coordinates array [{lat, lng}].
- * @returns {Array<Object>}
- */
-export function getPolygonCoordinates() {
-  return currentPoints.map(p => ({ lat: p.lat, lng: p.lng }));
-}
-
-/**
- * Check if a polygon currently exists.
+ * Returns whether a polygon currently exists on the map.
  * @returns {boolean}
  */
 export function hasPolygon() {
-  return currentPolygon !== null && currentPoints.length >= 3;
+  return currentPolygon !== null;
 }
 
 /**
- * Ray-casting algorithm to test if a point (lat, lng) is inside the polygon.
- * @param {number} lat 
- * @param {number} lng 
- * @param {Array<Object>} [coords] 
+ * Returns whether draw mode is currently enabled.
  * @returns {boolean}
  */
-export function isPointInPolygon(lat, lng, coords = null) {
-  const points = coords || getPolygonCoordinates();
-  if (!points || points.length < 3) return true; // If no boundary, allow all
-
-  let inside = false;
-  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
-    const xi = points[i].lat, yi = points[i].lng;
-    const xj = points[j].lat, yj = points[j].lng;
-
-    const intersect = ((yi > lng) !== (yj > lng)) &&
-      (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
-    if (intersect) inside = !inside;
-  }
-
-  return inside;
+export function isDrawing() {
+  return isModeEnabled;
 }
